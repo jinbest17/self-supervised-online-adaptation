@@ -10,7 +10,10 @@ def run_gas():
     supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3 = train.train_gas_offline(X_train, y_train, X_test, y_test)
     results = train.train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train, y_train,X_test)
     train.evaluate(y_test, results)
-    
+def run_gas_from_saved():
+    X_train, y_train, X_test, y_test = dataloader.load_data('gas')
+    results = train.train_gas_online_saved(X_train, y_train,X_test)
+    train.evaluate(y_test, results)
 def run_mnist():
     X_train, y_train, X_test, y_test = dataloader.load_data('mnist')
     # noise
@@ -51,6 +54,8 @@ if len(args) == 3:
         run_gas_baseline()
     elif args[2] == 'lssvm':
         print('lssvm')
+    elif args[2] == 'from_saved':
+        run_gas_from_saved()
 else:
     if dataset_name == 'gas':
         run_gas()

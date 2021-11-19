@@ -188,7 +188,6 @@ def train_mnist_offline(X_train, y_train):
         verbose=1)
     
     
-    return supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small
 
 def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test, verbose=False):
     @tf.function

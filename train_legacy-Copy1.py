@@ -61,6 +61,7 @@ def encoder_net():
 	encoder.trainable = True
 
 	embeddings = encoder(inputs, training=True)
+	# embeddings = GlobalAveragePooling2D()(embeddings)
 	norm_embeddings = normalization_layer(embeddings)
 
 	encoder_network = Model(inputs, norm_embeddings)
@@ -75,11 +76,11 @@ def projector_net():
 	])
 
 	return projector
-def train_gas_offline(X_train, y_train, X_test, y_test, verbose=True): 
+def train_gas(X_train, y_train, X_test, y_test): 
     IMG_SHAPE = 128
     BS = 80
-    EPOCH_FEATURE = 90
-    EPOCH_CLASSIFIER = 150
+    EPOCH_FEATURE = 300
+    EPOCH_CLASSIFIER = 200
     EPOCH_FEATURE_ADAPT = 100
     EPOCH_CLASSIFIER_ADAPT = 100
     LOG_EVERY = 10
@@ -103,7 +104,7 @@ def train_gas_offline(X_train, y_train, X_test, y_test, verbose=True):
         .prefetch(AUTO)
     )
 
-    optimizer3=tf.keras.optimizers.Adam(learning_rate=0.0003 )
+    optimizer3=tf.keras.optimizers.Adam(learning_rate=0.0005 )
     encoder_r = encoder_net()
     projector_z = projector_net()
 
@@ -128,13 +129,15 @@ def train_gas_offline(X_train, y_train, X_test, y_test, verbose=True):
         for (images, labels) in train_ds:
             loss = train_step(images, labels)
             epoch_loss_avg.update_state(loss) 
-        #if epoch_loss_avg.result() < 0.001:
-            
+        if epoch_loss_avg.result() < 0.004:
+            print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
+            print("Encoder train exiting")
+            break        
         train_loss_results.append(epoch_loss_avg.result())
         
-        if verbose == True and epoch % LOG_EVERY == 0:
+        if epoch % LOG_EVERY == 0:
             print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
-    #print(train_loss_results[-10:])
+    print(train_loss_results[-10:])
 
     # Train classifier
     def supervised_model():
@@ -157,37 +160,12 @@ def train_gas_offline(X_train, y_train, X_test, y_test, verbose=True):
 
     supervised_classifier.fit(train_ds,
         epochs=EPOCH_CLASSIFIER,
-        verbose=1 if verbose else 0)
+        verbose=1)
     count = 0
-    print("No transfer Accuracy")
     for i in range(1,10):
         print(supervised_classifier.evaluate(X_test[count:count+batch_length[i]],y_test[count:count+batch_length[i]]))
         count += batch_length[i]
     
-    
-    return supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3
-
-def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train, y_train, X_test, verbose=False):
-    EPOCH_FEATURE_ADAPT = 100
-    EPOCH_CLASSIFIER_ADAPT = 100
-    LOG_EVERY = 10
-    BS = 80
-    AUTO = tf.data.experimental.AUTOTUNE
-    CONFIDENCE_THRESHOLD = 0.8
-    @tf.function
-    def train_step(images, labels):
-        with tf.GradientTape() as tape:
-            r = encoder_r(images, training=True)
-            z = projector_z(r, training=True)
-            loss = losses.max_margin_contrastive_loss(z, labels)
-
-        gradients = tape.gradient(loss, 
-            encoder_r.trainable_variables + projector_z.trainable_variables)
-        optimizer3.apply_gradients(zip(gradients, 
-            encoder_r.trainable_variables + projector_z.trainable_variables))
-
-        return loss
-    
     # Calculate score for each class in train
     score_batch1 = supervised_classifier.predict(X_train)
     score_max_1 = score_batch1.max(axis=1)
@@ -195,15 +173,15 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
     for i in range(len(y_train)):
         scores_per_class[y_train[i]].append(score_max_1[i])
     mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
-    if verbose == True:
-        print("mean softmax score for training samples in each class: ",mean_score)
+    print(mean_score)
 
     sample_per_class = defaultdict(list)
     for i in range(len(y_train)):
         sample_per_class[y_train[i]].append(X_train[i])
+    print(len(sample_per_class[0]))
     
     results = []
-    #max_scores = []
+    max_scores = []
 
     count = 0
     BATH_SIZE_ADAPT = 60
@@ -211,13 +189,13 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
     accumulate_count = {1:0,2:0,3:0,4:0,5:0,0:0}
     lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
     
-    for i in range(0,len(X_test)):
+    for i in range(0,len(y_test)):
         
         sample_score = supervised_classifier.predict(X_test[i].reshape(1,128))
         label = sample_score.argmax() 
         results.append(label)    
         max_score = sample_score.max()
-        #max_scores.append(max_score)
+        max_scores.append(max_score)
         if max_score < mean_score[label]  and  max_score > lowerbound[label]:
             # add to new training sample
             if accumulate_count[label] >= len(sample_per_class[label]):
@@ -229,9 +207,8 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
             
         # if we accumulate enough samples
         if count >= BATH_SIZE_ADAPT:
-            if verbose == True:
-                print("New adaptation initiated at sample", i)
-                print_batch_size(sample_per_class)
+            print("New adaptation initiated at sample", i)
+            print_batch_size(sample_per_class)
             # form target batch
             X_target =[]
             y_target = []
@@ -242,7 +219,7 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
             
             X_target = np.array(X_target)
 
-            #print(X_target.shape, y_target.shape)
+            print(X_target.shape, y_target.shape)
             train_ds=tf.data.Dataset.from_tensor_slices((X_target,y_target))
             train_ds = (
                 train_ds
@@ -263,17 +240,15 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
 
                 train_loss_results.append(epoch_loss_avg.result())
                 if epoch_loss_avg.result() < 0.004:
-                    if verbose == True:
-                        print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
-                        print("Encoder train exiting")
+                    print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
+                    print("Encoder train exiting")
                     break
-                if verbose == True and (epoch % LOG_EVERY) == 0:
+                if epoch % LOG_EVERY == 0:
                     print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
             encoder_r.trainable = False
             projector_z.trainable = False
-            
             supervised_classifier.fit(train_ds,
-                epochs=EPOCH_CLASSIFIER_ADAPT, verbose=1 if verbose else 0,callbacks=[EarlyStoppingByAccuracy()])
+                epochs=EPOCH_CLASSIFIER_ADAPT, verbose=1,callbacks=[EarlyStoppingByAccuracy()])
             
             count = 0
             scores_per_class = defaultdict(list)
@@ -282,154 +257,12 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
             for i in range(len(y_target)):
                 scores_per_class[y_target[i]].append(score_max_1[i])
             mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
-            if verbose:
-                print(mean_score)
+            print(mean_score)
             lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
     return results
 
-def train_gas_online_saved(X_train,y_train,X_test,verbose = True):
-    optimizer3=tf.keras.optimizers.Adam(learning_rate=0.0003 )
-    encoder_r = encoder_net()
-    projector_z = projector_net()
+
     
-    def supervised_model():
-    
-        inputs = Input((128,  ))
-        encoder_r.trainable = False
-        projector_z.trainable = False
-        r = projector_z(encoder_r(inputs, training=False), training=False)
-        #r = encoder_r(inputs, training=False)
-        outputs = Dense(6, activation='softmax')(r)
-
-        supervised_model = Model(inputs, outputs)
-        return supervised_model
-    optimizer2 = tf.keras.optimizers.Adam(learning_rate=1e-3)
-    supervised_classifier = supervised_model()
-
-    supervised_classifier.compile(optimizer=optimizer2,
-        loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-        metrics=[tf.keras.metrics.SparseCategoricalAccuracy()])
-    encoder_r.load_weights("./SCL_encoder_Adam_11.h5")
-    projector_z.load_weights("./SCL_projector_Adam_11.h5")
-    supervised_classifier.load_weights('./Best_projected_350_epochs_11.h5')
-    EPOCH_FEATURE_ADAPT = 25
-    EPOCH_CLASSIFIER_ADAPT = 50
-    LOG_EVERY = 10
-    BS = 80
-    AUTO = tf.data.experimental.AUTOTUNE
-    CONFIDENCE_THRESHOLD = 0.8
-    @tf.function
-    def train_step(images, labels):
-        with tf.GradientTape() as tape:
-            r = encoder_r(images, training=True)
-            z = projector_z(r, training=True)
-            loss = losses.max_margin_contrastive_loss(z, labels)
-
-        gradients = tape.gradient(loss, 
-            encoder_r.trainable_variables + projector_z.trainable_variables)
-        optimizer3.apply_gradients(zip(gradients, 
-            encoder_r.trainable_variables + projector_z.trainable_variables))
-
-        return loss
-    
-    # Calculate score for each class in train
-    score_batch1 = supervised_classifier.predict(X_train)
-    score_max_1 = score_batch1.max(axis=1)
-    scores_per_class = defaultdict(list)
-    for i in range(len(y_train)):
-        scores_per_class[y_train[i]].append(score_max_1[i])
-    mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
-    if verbose == True:
-        print("mean softmax score for training samples in each class: ",mean_score)
-
-    sample_per_class = defaultdict(list)
-    for i in range(len(y_train)):
-        sample_per_class[y_train[i]].append(X_train[i])
-    
-    results = []
-    #max_scores = []
-
-    count = 0
-    BATH_SIZE_ADAPT = 60
-    new_samples_dict = defaultdict(list)
-    accumulate_count = {1:0,2:0,3:0,4:0,5:0,0:0}
-    lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
-    
-    for i in range(0,len(X_test)):
-        
-        sample_score = supervised_classifier.predict(X_test[i].reshape(1,128))
-        label = sample_score.argmax() 
-        results.append(label)    
-        max_score = sample_score.max()
-        #max_scores.append(max_score)
-        if max_score < mean_score[label]  and  max_score > lowerbound[label]:
-            # add to new training sample
-            if accumulate_count[label] >= len(sample_per_class[label]):
-                accumulate_count[label] = 0
-            sample_per_class[label][accumulate_count[label]] = X_test[i]
-            accumulate_count[label] += 1
-            count+=1
-            
-            
-        # if we accumulate enough samples
-        if count >= BATH_SIZE_ADAPT:
-            if verbose == True:
-                print("New adaptation initiated at sample", i)
-                print_batch_size(sample_per_class)
-            # form target batch
-            X_target =[]
-            y_target = []
-
-            for key in sample_per_class:
-                X_target = X_target + sample_per_class[key]
-                y_target = np.concatenate((y_target,[key]*len(sample_per_class[key])))        
-            
-            X_target = np.array(X_target)
-
-            #print(X_target.shape, y_target.shape)
-            train_ds=tf.data.Dataset.from_tensor_slices((X_target,y_target))
-            train_ds = (
-                train_ds
-                .shuffle(100)
-                .batch(BS)
-                .prefetch(AUTO)
-            )
-            
-            train_loss_results = []
-            encoder_r.trainable = True
-            projector_z.trainable = True
-            for epoch in range(EPOCH_FEATURE_ADAPT):	
-                epoch_loss_avg = tf.keras.metrics.Mean()
-
-                for (images, labels) in train_ds:
-                    loss = train_step(images, labels)
-                    epoch_loss_avg.update_state(loss) 
-
-                train_loss_results.append(epoch_loss_avg.result())
-                if epoch_loss_avg.result() < 0.004:
-                    if verbose == True:
-                        print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
-                        print("Encoder train exiting")
-                    break
-                if verbose == True and (epoch % LOG_EVERY) == 0:
-                    print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
-            encoder_r.trainable = False
-            projector_z.trainable = False
-            
-            supervised_classifier.fit(train_ds,
-                epochs=EPOCH_CLASSIFIER_ADAPT, verbose=1 if verbose else 0,callbacks=[EarlyStoppingByAccuracy()])
-            
-            count = 0
-            scores_per_class = defaultdict(list)
-            score_batch1 = supervised_classifier.predict(X_target)
-            score_max_1 = score_batch1.max(axis=1)
-            for i in range(len(y_target)):
-                scores_per_class[y_target[i]].append(score_max_1[i])
-            mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
-            if verbose:
-                print(mean_score)
-            lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
-    return results
 def evaluate(y_true, y_pred):
     batch_length = [445, 1244, 1586,161,197,2300,3613,294,470,3600]
     countnum = 0
