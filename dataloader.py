@@ -20,7 +20,7 @@ def load_data(dataset_name, use_imb=True):
         y_all = []
         
         oversample = SMOTE()
-        data_path = '../../Dataset'
+        data_path = '../Dataset'
         X_y_train = load_svmlight_file(data_path + "/batch" +str(1)+".dat")
         X_train = X_y_train[0].toarray()
         y_train = X_y_train[1]

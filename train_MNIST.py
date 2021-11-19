@@ -107,7 +107,8 @@ def projector_net():
 	])
 
 	return projector
-def train_mnist(X_train, y_train, X_test, y_test): 
+
+def train_mnist_offline(X_train, y_train): 
     
     # simulate low data regime for training
     n_train = X_train.shape[0]
@@ -154,10 +155,10 @@ def train_mnist(X_train, y_train, X_test, y_test):
         for (images, labels) in train_ds:
             loss = train_step(images, labels)
             epoch_loss_avg.update_state(loss) 
-        if epoch_loss_avg.result() < 0.004:
-            print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
-            print("Encoder train exiting")
-            break        
+        #if epoch_loss_avg.result() < 0.004:
+            #print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
+            #print("Encoder train exiting")
+            #break        
         train_loss_results.append(epoch_loss_avg.result())
         
         if epoch % LOG_EVERY == 0:
@@ -186,6 +187,23 @@ def train_mnist(X_train, y_train, X_test, y_test):
         epochs=EPOCH_CLASSIFIER,
         verbose=1)
     
+    
+    return supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small
+
+def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test, verbose=False):
+    @tf.function
+    def train_step(images, labels):
+        with tf.GradientTape() as tape:
+            r = encoder_r(images, training=True)
+            z = projector_z(r, training=True)
+            loss = losses.max_margin_contrastive_loss(z, labels)
+
+        gradients = tape.gradient(loss, 
+            encoder_r.trainable_variables + projector_z.trainable_variables)
+        optimizer3.apply_gradients(zip(gradients, 
+            encoder_r.trainable_variables + projector_z.trainable_variables))
+
+        return loss
     # Calculate score for each class in train
     score_batch1 = supervised_classifier.predict(X_train)
     score_max_1 = score_batch1.max(axis=1)
@@ -202,7 +220,7 @@ def train_mnist(X_train, y_train, X_test, y_test):
         print(len(sample_per_class[key]))
     
     results = []
-    max_scores = []
+    #max_scores = []
 
     count = 0
     BATH_SIZE_ADAPT = 100
@@ -210,13 +228,13 @@ def train_mnist(X_train, y_train, X_test, y_test):
     accumulate_count = {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0}
     lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
     
-    for i in range(0,len(y_test[:3200])):
+    for i in range(0,len(X_test)):
         
         sample_score = supervised_classifier.predict(X_test[i].reshape(1,28,28,1))
         label = sample_score.argmax() 
         results.append(label)    
         max_score = sample_score.max()
-        max_scores.append(max_score)
+        #max_scores.append(max_score)
         if max_score < mean_score[label]  and  max_score > lowerbound[label]:
             # add to new training sample
             if accumulate_count[label] >= len(sample_per_class[label]):
@@ -281,8 +299,7 @@ def train_mnist(X_train, y_train, X_test, y_test):
             print(mean_score)
             lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
     return results
-
-
+    
     
 def evaluate(y_true, y_pred):
     batch_length = [445, 1244, 1586,161,197,2300,3613,294,470,3600]
