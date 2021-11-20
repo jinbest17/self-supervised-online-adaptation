@@ -1,5 +1,7 @@
 import train
 import train_MNIST
+import train_baseline_lssvm
+import train_baseline_ot
 import dataloader
 import numpy as np
 import sys
@@ -42,18 +44,27 @@ def run_mnist():
     }
     pickle.dump(results, open('./mnist_results.p', "wb"))
 
-#def run_gas_baseline():
-    #X_train, y_train, X_test, y_test = dataloader.load_data('gas')
-    #results = D3.train(X_train, y_train, X_test, y_test)
-    #D3.evaluate(results)
+def run_gas_baseline_ot():
+    X_train, y_train, X_test, y_test = dataloader.load_data('gas')    
+    model = train_baseline_ot.train_baseline_ot_offline(X_train, y_train)
+    results = train_baseline_ot.train_baseline_ot_online(X_train, y_train, X_test, model)
+    
+    train_baseline_ot.evaluate(y_test, results)
+def run_gas_baseline_lssvm():
+    X_train, y_train, X_test, y_test = dataloader.load_data('gas')    
+    model = train_baseline_lssvm.train_baseline_lssvm_offline(X_train, y_train)
+    results = train_baseline_lssvm.train_baseline_lssvm_online( X_test, model)
+    
+    train_baseline_lssvm.evaluate(y_test, results)
+
     
 args = sys.argv
 dataset_name = args[1]
 if len(args) == 3:
-    if args[2] == 'd3':
-        run_gas_baseline()
+    if args[2] == 'ot':
+        run_gas_baseline_ot()
     elif args[2] == 'lssvm':
-        print('lssvm')
+        run_gas_baseline_lssvm()
     elif args[2] == 'from_saved':
         run_gas_from_saved()
 else:

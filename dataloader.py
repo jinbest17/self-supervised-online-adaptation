@@ -1,5 +1,4 @@
 from sklearn.utils import shuffle
-import tensorflow_datasets as tfds
 from sklearn.datasets import load_svmlight_file
 from imblearn.over_sampling import SMOTE
 import numpy as np

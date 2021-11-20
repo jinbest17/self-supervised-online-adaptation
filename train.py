@@ -28,7 +28,7 @@ class UnitNormLayer(tf.keras.layers.Layer):
         return tf.math.l2_normalize(input_tensor, axis=1)
 
 def print_batch_size(samples):
-    for key in samples:
+    for key in range(0,6):
         print(key,' : ',len(samples[key]))
 
         
@@ -188,35 +188,44 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
 
         return loss
     
+    sample_per_class = [[],[],[],[],[],[]]
+    for i in range(len(y_train)):
+        sample_per_class[y_train[i]].append(X_train[i])
+        
     # Calculate score for each class in train
     score_batch1 = supervised_classifier.predict(X_train)
     score_max_1 = score_batch1.max(axis=1)
-    scores_per_class = defaultdict(list)
+    #scores_per_class = defaultdict(list)
+    scores_per_class = [0,0,0,0,0,0]
+    mean_score = [0,0,0,0,0,0]
     for i in range(len(y_train)):
-        scores_per_class[y_train[i]].append(score_max_1[i])
-    mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
+        
+        scores_per_class[y_train[i]]+=score_max_1[i]
+    mean_score = [scores_per_class[key] / 98 for key in range(0,6)]
+    #mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
     if verbose == True:
         print("mean softmax score for training samples in each class: ",mean_score)
 
-    sample_per_class = defaultdict(list)
-    for i in range(len(y_train)):
-        sample_per_class[y_train[i]].append(X_train[i])
+    
     
     results = []
     #max_scores = []
 
     count = 0
     BATH_SIZE_ADAPT = 60
-    new_samples_dict = defaultdict(list)
-    accumulate_count = {1:0,2:0,3:0,4:0,5:0,0:0}
-    lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
+    #new_samples_dict = defaultdict(list)
+    #accumulate_count = {1:0,2:0,3:0,4:0,5:0,0:0}
+    accumulate_count = [0,0,0,0,0,0]
+    #lowerbound = [0,0,0,0,0,0]
+    lowerbound = [mean_score[i] * CONFIDENCE_THRESHOLD for i in range(0,6)]
+    #lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
     
     for i in range(0,len(X_test)):
         
         sample_score = supervised_classifier.predict(X_test[i].reshape(1,128))
         label = sample_score.argmax() 
         results.append(label)    
-        max_score = sample_score.max()
+        max_score = sample_score[label]
         #max_scores.append(max_score)
         if max_score < mean_score[label]  and  max_score > lowerbound[label]:
             # add to new training sample
@@ -236,7 +245,7 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
             X_target =[]
             y_target = []
 
-            for key in sample_per_class:
+            for key in range(0,6):
                 X_target = X_target + sample_per_class[key]
                 y_target = np.concatenate((y_target,[key]*len(sample_per_class[key])))        
             
@@ -284,7 +293,7 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
             mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
             if verbose:
                 print(mean_score)
-            lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
+            lowerbound = [mean_score[i] * CONFIDENCE_THRESHOLD for i in range(0,6)]
     return results
 
 def train_gas_online_saved(X_train,y_train,X_test,verbose = True):
@@ -332,28 +341,37 @@ def train_gas_online_saved(X_train,y_train,X_test,verbose = True):
 
         return loss
     
+    # Set samples for each class in train
+    sample_per_class = [[],[],[],[],[],[]]
+    for i in range(len(y_train)):
+        sample_per_class[y_train[i]].append(X_train[i])
+        
     # Calculate score for each class in train
     score_batch1 = supervised_classifier.predict(X_train)
     score_max_1 = score_batch1.max(axis=1)
-    scores_per_class = defaultdict(list)
+    #scores_per_class = defaultdict(list)
+    scores_per_class = [0,0,0,0,0,0]
+    mean_score = [0,0,0,0,0,0]
     for i in range(len(y_train)):
-        scores_per_class[y_train[i]].append(score_max_1[i])
-    mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
+        
+        scores_per_class[y_train[i]]+=score_max_1[i]
+    mean_score = [scores_per_class[key] / 98 for key in range(0,6)]
+    #mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
     if verbose == True:
         print("mean softmax score for training samples in each class: ",mean_score)
 
-    sample_per_class = defaultdict(list)
-    for i in range(len(y_train)):
-        sample_per_class[y_train[i]].append(X_train[i])
     
+    
+    results = []
     results = []
     #max_scores = []
 
     count = 0
     BATH_SIZE_ADAPT = 60
     new_samples_dict = defaultdict(list)
-    accumulate_count = {1:0,2:0,3:0,4:0,5:0,0:0}
-    lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
+    accumulate_count = [0,0,0,0,0,0]
+    #lowerbound = [0,0,0,0,0,0]
+    lowerbound = [mean_score[i] * CONFIDENCE_THRESHOLD for i in range(0,6)]
     
     for i in range(0,len(X_test)):
         
@@ -378,14 +396,15 @@ def train_gas_online_saved(X_train,y_train,X_test,verbose = True):
                 print_batch_size(sample_per_class)
             # form target batch
             X_target =[]
-            y_target = []
+            y_target = np.array([],dtype=int)
 
-            for key in sample_per_class:
+            for key in range(0,6):
+                #print(key)
                 X_target = X_target + sample_per_class[key]
-                y_target = np.concatenate((y_target,[key]*len(sample_per_class[key])))        
+                y_target = np.concatenate((y_target,np.full(98, key,dtype=int)))        
             
             X_target = np.array(X_target)
-
+            
             #print(X_target.shape, y_target.shape)
             train_ds=tf.data.Dataset.from_tensor_slices((X_target,y_target))
             train_ds = (
@@ -420,15 +439,27 @@ def train_gas_online_saved(X_train,y_train,X_test,verbose = True):
                 epochs=EPOCH_CLASSIFIER_ADAPT, verbose=1 if verbose else 0,callbacks=[EarlyStoppingByAccuracy()])
             
             count = 0
-            scores_per_class = defaultdict(list)
+            
+            
+            # Calculate score for each class in train
             score_batch1 = supervised_classifier.predict(X_target)
             score_max_1 = score_batch1.max(axis=1)
-            for i in range(len(y_target)):
-                scores_per_class[y_target[i]].append(score_max_1[i])
-            mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
-            if verbose:
-                print(mean_score)
-            lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
+            #scores_per_class = defaultdict(list)
+            
+            scores_per_class = [0,0,0,0,0,0]
+            for j in range(len(y_target)):
+                scores_per_class[y_target[j]]+=score_max_1[j]
+            mean_score = [scores_per_class[key] / 98 for key in range(0,6)]
+            #mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
+            if verbose == True:
+                print("mean softmax score for training samples in each class: ",mean_score)
+            
+            
+            
+            #optimizer3=tf.keras.optimizers.Adam(learning_rate=0.0003 )
+            #optimizer2=tf.keras.optimizers.Adam(learning_rate=1e-3 )
+
+            lowerbound = [mean_score[j] * CONFIDENCE_THRESHOLD for j in range(0,6)]
     return results
 def evaluate(y_true, y_pred):
     batch_length = [445, 1244, 1586,161,197,2300,3613,294,470,3600]

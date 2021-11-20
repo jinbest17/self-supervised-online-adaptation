@@ -1,0 +1,61 @@
+TensorFlow 2.0 Upgrade Script
+-----------------------------
+Converted 1 files
+Detected 5 issues that require attention
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+File: Soft Sensor Mass Calibration.py
+--------------------------------------------------------------------------------
+Soft Sensor Mass Calibration.py:35:23: ERROR: Using member tf.contrib.layers.fully_connected in deprecated module tf.contrib. tf.contrib.layers.fully_connected cannot be converted automatically. tf.contrib will not be distributed with TensorFlow 2.0, please consider an alternative in non-contrib TensorFlow, a community-maintained repository such as tensorflow/addons, or fork the required code.
+Soft Sensor Mass Calibration.py:37:23: ERROR: Using member tf.contrib.layers.fully_connected in deprecated module tf.contrib. tf.contrib.layers.fully_connected cannot be converted automatically. tf.contrib will not be distributed with TensorFlow 2.0, please consider an alternative in non-contrib TensorFlow, a community-maintained repository such as tensorflow/addons, or fork the required code.
+Soft Sensor Mass Calibration.py:39:23: ERROR: Using member tf.contrib.layers.fully_connected in deprecated module tf.contrib. tf.contrib.layers.fully_connected cannot be converted automatically. tf.contrib will not be distributed with TensorFlow 2.0, please consider an alternative in non-contrib TensorFlow, a community-maintained repository such as tensorflow/addons, or fork the required code.
+Soft Sensor Mass Calibration.py:41:19: ERROR: Using member tf.contrib.layers.fully_connected in deprecated module tf.contrib. tf.contrib.layers.fully_connected cannot be converted automatically. tf.contrib will not be distributed with TensorFlow 2.0, please consider an alternative in non-contrib TensorFlow, a community-maintained repository such as tensorflow/addons, or fork the required code.
+Soft Sensor Mass Calibration.py:115:8: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+================================================================================
+Detailed log follows:
+
+================================================================================
+--------------------------------------------------------------------------------
+Processing file 'Soft Sensor Mass Calibration.py'
+ outputting to 'TDANN.py'
+--------------------------------------------------------------------------------
+
+21:17: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+22:17: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+24:13: INFO: Renamed 'tf.variable_scope' to 'tf.compat.v1.variable_scope'
+29:21: INFO: tf.train.exponential_decay requires manual check. To use learning rate decay schedules with TensorFlow 2.0, switch to the schedules in `tf.keras.optimizers.schedules`.
+
+29:21: INFO: Renamed 'tf.train.exponential_decay' to 'tf.compat.v1.train.exponential_decay'
+30:20: INFO: Added keywords to args of function 'tf.reduce_mean'
+30:35: INFO: tf.losses.mean_squared_error requires manual check. tf.losses have been replaced with object oriented versions in TF 2.0 and after. The loss function calls have been converted to compat.v1 for backward compatibility. Please update these calls to the TF 2.0 versions.
+30:35: INFO: Renamed 'tf.losses.mean_squared_error' to 'tf.compat.v1.losses.mean_squared_error'
+31:25: INFO: Renamed 'tf.train.AdamOptimizer' to 'tf.compat.v1.train.AdamOptimizer'
+35:23: ERROR: Using member tf.contrib.layers.fully_connected in deprecated module tf.contrib. tf.contrib.layers.fully_connected cannot be converted automatically. tf.contrib will not be distributed with TensorFlow 2.0, please consider an alternative in non-contrib TensorFlow, a community-maintained repository such as tensorflow/addons, or fork the required code.
+36:79: INFO: Changing tf.contrib.layers xavier initializer to a tf.compat.v1.keras.initializers.VarianceScaling and converting arguments.
+
+37:23: ERROR: Using member tf.contrib.layers.fully_connected in deprecated module tf.contrib. tf.contrib.layers.fully_connected cannot be converted automatically. tf.contrib will not be distributed with TensorFlow 2.0, please consider an alternative in non-contrib TensorFlow, a community-maintained repository such as tensorflow/addons, or fork the required code.
+38:79: INFO: Changing tf.contrib.layers xavier initializer to a tf.compat.v1.keras.initializers.VarianceScaling and converting arguments.
+
+39:23: ERROR: Using member tf.contrib.layers.fully_connected in deprecated module tf.contrib. tf.contrib.layers.fully_connected cannot be converted automatically. tf.contrib will not be distributed with TensorFlow 2.0, please consider an alternative in non-contrib TensorFlow, a community-maintained repository such as tensorflow/addons, or fork the required code.
+40:79: INFO: Changing tf.contrib.layers xavier initializer to a tf.compat.v1.keras.initializers.VarianceScaling and converting arguments.
+
+41:19: ERROR: Using member tf.contrib.layers.fully_connected in deprecated module tf.contrib. tf.contrib.layers.fully_connected cannot be converted automatically. tf.contrib will not be distributed with TensorFlow 2.0, please consider an alternative in non-contrib TensorFlow, a community-maintained repository such as tensorflow/addons, or fork the required code.
+42:79: INFO: Changing tf.contrib.layers xavier initializer to a tf.compat.v1.keras.initializers.VarianceScaling and converting arguments.
+
+79:11: INFO: Renamed 'tf.ConfigProto' to 'tf.compat.v1.ConfigProto'
+95:4: INFO: Renamed 'tf.reset_default_graph' to 'tf.compat.v1.reset_default_graph'
+97:9: INFO: Renamed 'tf.Session' to 'tf.compat.v1.Session'
+98:17: INFO: Renamed 'tf.global_variables_initializer' to 'tf.compat.v1.global_variables_initializer'
+99:17: INFO: Renamed 'tf.local_variables_initializer' to 'tf.compat.v1.local_variables_initializer'
+114:16: INFO: Renamed 'tf.train.Saver' to 'tf.compat.v1.train.Saver'
+115:8: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+118:4: INFO: Renamed 'tf.reset_default_graph' to 'tf.compat.v1.reset_default_graph'
+120:11: INFO: Renamed 'tf.ConfigProto' to 'tf.compat.v1.ConfigProto'
+138:9: INFO: Renamed 'tf.Session' to 'tf.compat.v1.Session'
+141:16: INFO: Renamed 'tf.train.Saver' to 'tf.compat.v1.train.Saver'
+175:11: INFO: Renamed 'tf.ConfigProto' to 'tf.compat.v1.ConfigProto'
+179:4: INFO: Renamed 'tf.reset_default_graph' to 'tf.compat.v1.reset_default_graph'
+195:9: INFO: Renamed 'tf.Session' to 'tf.compat.v1.Session'
+198:16: INFO: Renamed 'tf.train.Saver' to 'tf.compat.v1.train.Saver'
+--------------------------------------------------------------------------------
+
