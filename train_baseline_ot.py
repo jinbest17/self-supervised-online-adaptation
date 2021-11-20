@@ -29,11 +29,12 @@ def FNN():
         metrics=[tf.keras.metrics.SparseCategoricalAccuracy()])
     return FNN_network
 
-def train_gas_ot_offline(X_train, y_train):
+def train_baseline_ot_offline(X_train, y_train):
     model = FNN()
     model.fit(X_train,y_train, batch_size=80,epochs=20)
+    return model
 
-def train_gas_ot_online(X_train, y_train, X_test, model):
+def train_baseline_ot_online(X_train, y_train, X_test, model):
     ot_model=ot.da.EMDTransport()
     results = []
     X_source = X_train

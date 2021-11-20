@@ -14,7 +14,7 @@ import matplotlib.colors as clrs
 import pandas as pd
 
 
-def train_gas_lssvm_offline(X_train, y_train):
+def train_baseline_lssvm_offline(X, y):
     clusters = 15
     kmeans = KMeans(n_clusters=clusters).fit(X)
 
@@ -39,7 +39,7 @@ def train_gas_lssvm_offline(X_train, y_train):
     model.fit(X_train, np.array(y_train)) # Fitting the model
     
     return model
-def train_gas_lssvm_online(X_test,model):
+def train_baseline_lssvm_online(X_test,model):
     return model.fit_online(X_test)
 
 def evaluate(y_true, y_pred):

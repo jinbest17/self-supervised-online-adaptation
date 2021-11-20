@@ -186,6 +186,7 @@ def train_mnist_offline(X_train, y_train):
     supervised_classifier.fit(train_ds,
         epochs=EPOCH_CLASSIFIER,
         verbose=1)
+    return supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small
     
     
 
@@ -204,11 +205,11 @@ def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2
 
         return loss
     # Calculate score for each class in train
-    score_batch1 = supervised_classifier.predict(X_train)
+    score_batch1 = supervised_classifier.predict(X_train_small)
     score_max_1 = score_batch1.max(axis=1)
     scores_per_class = defaultdict(list)
-    for i in range(len(y_train)):
-        scores_per_class[y_train[i]].append(score_max_1[i])
+    for i in range(len(y_train_small)):
+        scores_per_class[y_train_small[i]].append(score_max_1[i])
     mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
     print(mean_score)
 
@@ -298,7 +299,33 @@ def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2
             print(mean_score)
             lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
     return results
+
+def load_model():
+    optimizer3=tf.keras.optimizers.Adam(learning_rate=0.0005 )
+    encoder_r = encoder_net()
+    projector_z = projector_net()
+    def supervised_model():
     
+        inputs = Input(input_shape)
+        encoder_r.trainable = False
+        projector_z.trainable = False
+        r = projector_z(encoder_r(inputs, training=False), training=False)
+        outputs = Dense(10, activation='softmax')(r)
+
+        supervised_model = Model(inputs, outputs)
+        return supervised_model
+
+    optimizer2 = tf.keras.optimizers.Adam(learning_rate=1e-3)
+    supervised_classifier = supervised_model()
+
+    supervised_classifier.compile(optimizer=optimizer2,
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(),
+        metrics=[tf.keras.metrics.SparseCategoricalAccuracy()])
+    encoder_r.load_weights("./SCL_encoder_MNIST_11.h5")
+    projector_z.load_weights("./SCL_projector_MNIST_11.h5")
+    supervised_classifier.load_weights('./Classifier_MNIST_11.h5')
+    
+    return supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3
     
 def evaluate(y_true, y_pred):
     batch_length = [445, 1244, 1586,161,197,2300,3613,294,470,3600]

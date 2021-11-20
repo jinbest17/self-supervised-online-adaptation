@@ -6,9 +6,9 @@ import tensorflow_addons as tfa
 def pdist_euclidean(A):
     # Euclidean pdist
     # https://stackoverflow.com/questions/37009647/compute-pairwise-distance-in-a-batch-without-replicating-tensor-in-tensorflow
-    tf.debugging.check_numerics(A,message='check A')
-    product = tf.debugging.check_numerics(A*A,message='check product')
-    r = tf.debugging.check_numerics(tf.reduce_sum(A*A, 1),message='check reduce sum')
+    
+    product = A*A
+    r = tf.reduce_sum(A*A, 1)
 
     # turn r into column vector
     r = tf.reshape(r, [-1, 1])
@@ -61,16 +61,16 @@ def max_margin_contrastive_loss(z, y, margin=1.0, metric='euclidean'):
     '''
     # compute pair-wise distance matrix
     if metric == 'euclidean':
-        D = tf.debugging.check_numerics(pdist_euclidean(z), message='check distance mat')
+        D = pdist_euclidean(z)
     elif metric == 'cosine':
         D = 1 - tf.matmul(z, z, transpose_a=False, transpose_b=True)
     # convert squareform matrix to vector form
-    d_vec = tf.debugging.check_numerics(square_to_vec(D),message='check mat to vec')
+    d_vec = square_to_vec(D)
     # make contrastive labels
     y_contrasts = get_contrast_batch_labels(y)
-    loss = tf.debugging.check_numerics(tfa.losses.contrastive_loss(y_contrasts, d_vec, margin=margin), message='check loss before mean')
+    loss = tfa.losses.contrastive_loss(y_contrasts, d_vec, margin=margin)
     # exploding/varnishing gradients on large batch?
-    return tf.debugging.check_numerics(tf.reduce_mean(loss), message='check loss after mean')
+    return tf.reduce_mean(loss)
 
 
 def multiclass_npairs_loss(z, y):
