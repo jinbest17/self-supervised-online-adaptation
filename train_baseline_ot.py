@@ -39,7 +39,7 @@ def train_baseline_ot_online(X_train, y_train, X_test, model):
     results = []
     X_source = X_train
     sample_per_class = defaultdict(list)
-    accumulate_count = {1:0,2:0,3:0,4:0,5:0,0:0,6:0,7:0,8:0,9:0}
+    accumulate_count = {1:0,2:0,3:0,4:0,5:0,0:0}
     new_samples_dict = defaultdict(list)
     BATCH_SIZE_ADAPT = 100
 
