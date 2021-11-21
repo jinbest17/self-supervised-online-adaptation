@@ -2,6 +2,7 @@ import train
 import train_MNIST
 import train_baseline_lssvm
 import train_baseline_ot
+import train_mnist_ot
 import dataloader
 import numpy as np
 import sys
@@ -16,7 +17,23 @@ def run_gas_from_saved():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')
     results = train.train_gas_online_saved(X_train, y_train,X_test,y_test)
     train.evaluate(y_test, results)
-def run_mnist():
+
+    
+def run_mnist_rotate():
+    X_train, y_train, X_test, y_test = dataloader.load_data('mnist')
+   
+    # rotate
+    X_test_rotate = np.array([np.rot90(img) for img in X_test])
+    supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
+    result_rotate = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_rotate)
+
+
+    results = {
+        'results_rotate':result_rotate,
+        'true_label':y_test
+    }
+    pickle.dump(results, open('./mnist_results_rotate.p', "wb"))
+def run_mnist_noise():
     X_train, y_train, X_test, y_test = dataloader.load_data('mnist')
     # noise
     noise = np.random.normal(0, 0.3, X_test.shape)
@@ -24,11 +41,13 @@ def run_mnist():
     #print(X_test_noise.shape)
     supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
     result_noise = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_noise)
-    # rotate
-    X_test_rotate = np.array([np.rot90(img) for img in X_test])
-    supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
-    result_rotate = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_rotate)
-
+    results = {
+        'results_noise' :result_noise,
+        'true_label':y_test
+    }
+    pickle.dump(results, open('./mnist_results_noise.p', "wb"))
+def run_mnist_perm():
+    X_train, y_train, X_test, y_test = dataloader.load_data('mnist')
     # permutation
     X_test_perm_interim = np.array([np.random.permutation(img) for img in X_test])
     X_test_perm_rot = np.array([np.rot90(img) for img in X_test_perm_interim])
@@ -37,57 +56,91 @@ def run_mnist():
     result_perm = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_perm)
     
     results = {
-        'results_noise' :results_noise,
-        'results_rotate':results_rotate,
-        'results_perm':results_perm,
+        'results_perm':result_perm,
         'true_label':y_test
     }
-    pickle.dump(results, open('./mnist_results.p', "wb"))
+    pickle.dump(results, open('./mnist_results_perm.p', "wb"))
     
-def run_mnist_from_saved():
+def run_mnist_from_saved(transformation):
     N_DATA_TRAIN = 800
     X_train, y_train, X_test, y_test = dataloader.load_data('mnist')
     
     n_train = X_train.shape[0]
     shuffle_idx = np.arange(n_train)
     np.random.shuffle(shuffle_idx)
-
+    result = []
     X_train_small = X_train[shuffle_idx][:N_DATA_TRAIN]
     y_train_small = y_train[shuffle_idx][:N_DATA_TRAIN]
     print(X_train_small.shape, y_train_small.shape)
-    
-    # noise
-    noise = np.random.normal(0, 0.3, X_test.shape)
-    X_test_noise = X_test + noise
-    #print(X_test_noise.shape)
-    supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3 = train_MNIST.load_model()
-    result_noise = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_noise)
-    # rotate
-    X_test_rotate = np.array([np.rot90(img) for img in X_test])
-    supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
-    result_rotate = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_rotate)
-
-    # permutation
-    X_test_perm_interim = np.array([np.random.permutation(img) for img in X_test])
-    X_test_perm_rot = np.array([np.rot90(img) for img in X_test_perm_interim])
-    X_test_perm = np.array([np.random.permutation(img) for img in X_test_perm_rot])
-    supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
-    result_perm = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_perm)
+    if transformation == 'noise':
+        # noise
+        noise = np.random.normal(0, 0.3, X_test.shape)
+        X_test_noise = X_test + noise
+        #print(X_test_noise.shape)
+        supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3 = train_MNIST.load_model()
+        result = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_noise)
+    elif transformation == 'rotate':
+        # rotate
+        X_test_rotate = np.array([np.rot90(img) for img in X_test])
+        supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
+        result= train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_rotate)
+    elif transformation == 'permutation':
+        # permutation
+        X_test_perm_interim = np.array([np.random.permutation(img) for img in X_test])
+        X_test_perm_rot = np.array([np.rot90(img) for img in X_test_perm_interim])
+        X_test_perm = np.array([np.random.permutation(img) for img in X_test_perm_rot])
+        supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
+        result = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_perm)
     
     results = {
-        'results_noise' :results_noise,
-        'results_rotate':results_rotate,
-        'results_perm':results_perm,
+        'results_'+transformation :result,
         'true_label':y_test
     }
-    pickle.dump(results, open('./mnist_results.p', "wb"))
+    pickle.dump(results, open('./mnist_results'+transformation+'.p', "wb"))
 
 def run_gas_baseline_ot():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')    
     model = train_baseline_ot.train_baseline_ot_offline(X_train, y_train)
     results = train_baseline_ot.train_baseline_ot_online(X_train, y_train, X_test, model)
-    
     train_baseline_ot.evaluate(y_test, results)
+def run_mnist_ot_from_saved(transformation):
+    N_DATA_TRAIN = 800
+    X_train, y_train, X_test, y_test = dataloader.load_data('mnist')
+    
+    n_train = X_train.shape[0]
+    shuffle_idx = np.arange(n_train)
+    np.random.shuffle(shuffle_idx)
+    result = []
+    X_train_small = X_train[shuffle_idx][:N_DATA_TRAIN]
+    y_train_small = y_train[shuffle_idx][:N_DATA_TRAIN]
+    print(X_train_small.shape, y_train_small.shape)
+    if transformation == 'noise':
+        # noise
+        noise = np.random.normal(0, 0.3, X_test.shape)
+        X_test_noise = X_test + noise
+        #print(X_test_noise.shape)
+        supervised_classifier  = train_mnist_ot.load_model()
+        result = train_mnist_ot.train_mnist_ot_online( X_train_small, y_train_small, X_test_noise,supervised_classifier)
+    elif transformation == 'rotate':
+        # rotate
+        X_test_rotate = np.array([np.rot90(img) for img in X_test])
+        supervised_classifier  = train_mnist_ot.load_model()
+        result = train_mnist_ot.train_mnist_ot_online( X_train_small, y_train_small, X_test_rotate,supervised_classifier)
+    elif transformation == 'permutation':
+        # permutation
+        X_test_perm_interim = np.array([np.random.permutation(img) for img in X_test])
+        X_test_perm_rot = np.array([np.rot90(img) for img in X_test_perm_interim])
+        X_test_perm = np.array([np.random.permutation(img) for img in X_test_perm_rot])
+        supervised_classifier  = train_mnist_ot.load_model()
+        result = train_mnist_ot.train_mnist_ot_online( X_train_small, y_train_small, X_test_perm,supervised_classifier)
+    
+    results = {
+        'results_'+transformation :result,
+        'true_label':y_test
+    }
+    pickle.dump(results, open('./mnist_results'+transformation+'.p', "wb"))
+    
+    
 def run_gas_baseline_lssvm():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')    
     model = train_baseline_lssvm.train_baseline_lssvm_offline(X_train, y_train)
@@ -98,19 +151,32 @@ def run_gas_baseline_lssvm():
     
 args = sys.argv
 dataset_name = args[1]
-if len(args) == 3:
-    if args[2] == 'ot':
-        run_gas_baseline_ot()
-    elif args[2] == 'lssvm':
-        run_gas_baseline_lssvm()
-    elif args[2] == 'from_saved':
-        if args[1] == 'gas':
-            run_gas_from_saved()
-        else:
-            run_mnist_from_saved()
-else:
-    if dataset_name == 'gas':
-        run_gas()
-    elif dataset_name == 'mnist':
-        run_mnist()
+
+
+if dataset_name == 'gas':
+    if len(args) == 3:
+        if args[2] == 'ot':
+            run_gas_baseline_ot()
+        elif args[2] == 'lssvm':
+            run_gas_baseline_lssvm()
+        elif args[2] == 'SOA':
+            run_gas()
+    else:
+
+        run_gas_from_saved()
+elif dataset_name == 'mnist':
+    if len(args) == 4:
+        if args[3] == 'noise':
+            run_mnist_noise()
+        elif args[2] == 'rotate':
+            run_mnist_rotate()
+        elif args[2] == 'permutation':
+            run_mnist_perm()
+    else:
+        if args[2] == 'ot':
+            run_mnist_ot_from_saved(args[3])
+
+        elif args[2] == 'SOA':
+            run_mnist_from_saved(args[3])
+
     
