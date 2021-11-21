@@ -34,7 +34,7 @@ def train_baseline_lssvm_offline(X, y):
             y_train.append(clusterList[key][j][1])
     X_train, y_train = shuffle(X_train, y_train)
     
-    model = LSSVC(gamma=1, kernel='rbf', l = 5000000, dTh=0.4, sigma=1) # Class instantiation
+    model = LSSVC(gamma=1, kernel='rbf', l = 500000, dTh=0.8, sigma=1) # Class instantiation
 
     model.fit(X_train, np.array(y_train)) # Fitting the model
     

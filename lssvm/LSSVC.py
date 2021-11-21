@@ -185,12 +185,15 @@ class LSSVC():
             self.t = self.t + 1
             I, minVal = self.findMinIdx(X[i], i)
             y_pred.append(self.predict(X[i])[0])
+           
             D = self.dTh - minVal
-            #print(I, D)
+            print(D)
             if D > 0:
                 print("refitting at index", i)
                 self.t[I] = 0
                 self.sv_x[I] = X[i]
+                #print(y_pred[-1])
+                #self.sv_y[I] = y_pred[-1]
                 self.fit(self.sv_x, self.sv_y)
         #print(self.t)
         return y_pred

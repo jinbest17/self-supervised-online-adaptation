@@ -28,26 +28,10 @@ def FNN():
         loss=tf.keras.losses.SparseCategoricalCrossentropy(),
         metrics=[tf.keras.metrics.SparseCategoricalAccuracy()])
     return FNN_network
-class EarlyStoppingByAccuracy(tf.keras.callbacks.Callback):
-    def __init__(self, monitor='sparse_categorical_accuracy', value=0.99, verbose=0):
-        super(tf.keras.callbacks.Callback, self).__init__()
-        self.monitor = monitor
-        self.value = value
-        self.verbose = verbose
 
-    def on_epoch_end(self, epoch, logs={}):
-        current = logs.get(self.monitor)
-        if current is None:
-            warnings.warn("Early stopping requires %s available!" % self.monitor, RuntimeWarning)
-
-        if current >= self.value:
-            if self.verbose > 0:
-                print("Epoch %05d: early stopping THR" % epoch)
-            self.model.stop_training = True
-def train_baseline_ot_offline(X_train, y_train,X_test):
+def train_baseline_ot_offline(X_train, y_train):
     model = FNN()
-    
-
+    model.fit(X_train,y_train, batch_size=80,epochs=20)
     return model
 
 def train_baseline_ot_online(X_train, y_train, X_test, model):
@@ -57,17 +41,14 @@ def train_baseline_ot_online(X_train, y_train, X_test, model):
     sample_per_class = defaultdict(list)
     accumulate_count = {1:0,2:0,3:0,4:0,5:0,0:0}
     new_samples_dict = defaultdict(list)
-    BATCH_SIZE_ADAPT = 80
-    X_test = X_test[:1245]
+    BATCH_SIZE_ADAPT = 100
+
 
     for i in range(len(y_train)):
         sample_per_class[y_train[i]].append(X_train[i])
     count = 0
     for i in range(0,len(X_test)):
-        if len(results) >BATCH_SIZE_ADAPT:
-            label =  np.argmax(model.predict(ot_model.transform(X_test[i].reshape(1,128))))
-        else:
-            label =  np.argmax(model.predict(X_test[i].reshape(1,128)))
+        label =  np.argmax(model.predict(X_test[i].reshape(1,128)))
         if accumulate_count[label] >= len(sample_per_class[label]):
             accumulate_count[label] = 0
         sample_per_class[label][accumulate_count[label]] = X_test[i]
@@ -84,8 +65,7 @@ def train_baseline_ot_online(X_train, y_train, X_test, model):
             ot_model.fit(Xs=X_target, Xt=X_source)
             X_target_transform = ot_model.transform(Xs = X_target)
 
-            model.fit(X_target,y_target, batch_size=80,epochs=50,callbacks=[EarlyStoppingByAccuracy()])
-            X_source = X_target
+            model.fit(X_target,y_target, batch_size=80,epochs=3)
             count = 0
             print(i)
         results.append(label)
