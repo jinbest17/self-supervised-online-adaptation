@@ -11,7 +11,7 @@ import pickle
 def run_gas():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')
     supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3 = train.train_gas_offline(X_train, y_train, X_test, y_test)
-    results = train.train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train, y_train,X_test)
+    results = train.train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train, y_train,X_test,y_test)
     train.evaluate(y_test, results)
 def run_gas_from_saved():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')

@@ -44,7 +44,7 @@ class EarlyStoppingByAccuracy(tf.keras.callbacks.Callback):
             if self.verbose > 0:
                 print("Epoch %05d: early stopping THR" % epoch)
             self.model.stop_training = True
-def train_baseline_ot_offline(X_train, y_train,X_test):
+def train_baseline_ot_offline(X_train, y_train):
     model = FNN()
     model.fit(X_train,y_train, batch_size=80,epochs=20)
     
@@ -58,7 +58,6 @@ def train_baseline_ot_online(X_train, y_train, X_test, model):
     accumulate_count = {1:0,2:0,3:0,4:0,5:0,0:0}
     new_samples_dict = defaultdict(list)
     BATCH_SIZE_ADAPT = 80
-    X_test = X_test[:1245]
 
     for i in range(len(y_train)):
         sample_per_class[y_train[i]].append(X_train[i])
@@ -96,6 +95,7 @@ def evaluate(y_true, y_pred):
     counttotal = 0
     count = 1
     i = 0
+    accu = ""
     while count < 10:
         
         if y_true[i] == y_pred[i]:
@@ -104,7 +104,9 @@ def evaluate(y_true, y_pred):
         i+= 1
         if counttotal == batch_length[count]:
             print("Batch", count+1, " Accuracy is: ", countnum/counttotal)
+            accu = accu + ',' + str(countnum/counttotal)
             countnum = 0
             counttotal = 0
             count+= 1
+    print(accu)
     
