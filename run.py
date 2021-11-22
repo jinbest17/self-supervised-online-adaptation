@@ -106,7 +106,7 @@ def run_gas_baseline_ot():
 def run_mnist_ot_from_saved(transformation):
     N_DATA_TRAIN = 800
     X_train, y_train, X_test, y_test = dataloader.load_data('mnist')
-    
+    X_test = X_test[:3200]
     n_train = X_train.shape[0]
     shuffle_idx = np.arange(n_train)
     np.random.shuffle(shuffle_idx)
@@ -133,7 +133,11 @@ def run_mnist_ot_from_saved(transformation):
         X_test_perm = np.array([np.random.permutation(img) for img in X_test_perm_rot])
         supervised_classifier  = train_mnist_ot.load_model()
         result = train_mnist_ot.train_mnist_ot_online( X_train_small, y_train_small, X_test_perm,supervised_classifier)
-    
+    count = 0
+    for i in range(len(result)):
+        if result[i] == y_test[i]:
+            count+=1
+    print(count /len(result) )
     results = {
         'results_'+transformation :result,
         'true_label':y_test

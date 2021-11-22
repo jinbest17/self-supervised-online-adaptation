@@ -46,8 +46,8 @@ class EarlyStoppingByAccuracy(tf.keras.callbacks.Callback):
             self.model.stop_training = True
 def train_baseline_ot_offline(X_train, y_train,X_test):
     model = FNN()
+    model.fit(X_train,y_train, batch_size=80,epochs=20)
     
-
     return model
 
 def train_baseline_ot_online(X_train, y_train, X_test, model):
