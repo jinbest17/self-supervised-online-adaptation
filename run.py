@@ -58,7 +58,7 @@ def run_mnist_rotate():
         'results_rotate':result_rotate,
         'true_label':y_test
     }
-    pickle.dump(results, open('./mnist_results_rotate.p', "wb"))
+    pickle.dump(results, open('./saved_results/mnist_results_rotate.p', "wb"))
 def run_mnist_noise():
     X_train, y_train, X_test, y_test = dataloader.load_data('mnist')
     # noise
@@ -80,7 +80,7 @@ def run_mnist_noise():
         'results_noise' :result_noise,
         'true_label':y_test
     }
-    pickle.dump(results, open('./mnist_results_noise.p', "wb"))
+    pickle.dump(results, open('./saved_results/mnist_results_noise.p', "wb"))
 def run_mnist_perm():
     X_train, y_train, X_test, y_test = dataloader.load_data('mnist')
     # permutation
@@ -94,7 +94,7 @@ def run_mnist_perm():
         'results_perm':result_perm,
         'true_label':y_test
     }
-    pickle.dump(results, open('./mnist_results_perm.p', "wb"))
+    pickle.dump(results, open('./saved_results/mnist_results_perm.p', "wb"))
     
 def run_mnist_from_saved(transformation):
     N_DATA_TRAIN = 800
@@ -142,7 +142,7 @@ def run_mnist_from_saved(transformation):
         'results_'+transformation :result,
         'true_label':y_test
     }
-    pickle.dump(results, open('./mnist_results'+transformation+'.p', "wb"))
+    pickle.dump(results, open('./saved_results/mnist_results'+transformation+'.p', "wb"))
 
 def run_gas_baseline_ot():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')    
@@ -215,7 +215,7 @@ def run_mnist_ot_from_saved(transformation):
         'results_'+transformation :result,
         'true_label':y_test
     }
-    pickle.dump(results, open('./mnist_results'+transformation+'.p', "wb"))
+    pickle.dump(results, open('./saved_results/mnist_results'+transformation+'.p', "wb"))
     
     
 def run_gas_baseline_lssvm():
