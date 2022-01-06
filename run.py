@@ -8,14 +8,24 @@ import numpy as np
 import sys
 import pickle
 import time
+import socket
+
+UDP_IP = "169.254.16.45"
+UDP_PORT = 30000
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
 
 def run_gas():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')
     supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3 = train.train_gas_offline(X_train, y_train, X_test, y_test)
 
+    sock.sendto(b's,gas_SOA', (UDP_IP, UDP_PORT))
     st = time.time()
     results = train.train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train, y_train,X_test)
-    print('online exec time: {} secs'.format(time.time() - st))
+    ed = time.time()
+    sock.sendto(b't,', (UDP_IP, UDP_PORT))
+    with open('time_log.txt', 'a+') as f:
+        f.write('gas SOA online exec time: {} secs\n'.format(ed - st))
 
     train.evaluate(y_test, results)
 
@@ -36,7 +46,12 @@ def run_mnist_rotate():
     # rotate
     X_test_rotate = np.array([np.rot90(img) for img in X_test])
     supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
+
+    sock.sendto(b's,mnist_SOA_rotate', (UDP_IP, UDP_PORT))
+    st = time.time()
     result_rotate = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_rotate)
+    ed = time.time()
+    sock.sendto(b't,', (UDP_IP, UDP_PORT))
 
 
     results = {
@@ -51,7 +66,16 @@ def run_mnist_noise():
     X_test_noise = X_test + noise
     #print(X_test_noise.shape)
     supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
+    
+    sock.sendto(b's,mnist_SOA_noise', (UDP_IP, UDP_PORT))
+    st = time.time()
     result_noise = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_noise)
+    ed = time.time()
+    sock.sendto(b't,', (UDP_IP, UDP_PORT))
+    with open('time_log.txt', 'a+') as f:
+        f.write('mnist SOA noise online exec time: {} secs\n'.format(ed - st))
+
+
     results = {
         'results_noise' :result_noise,
         'true_label':y_test
@@ -124,9 +148,13 @@ def run_gas_baseline_ot():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')    
     model = train_baseline_ot.train_baseline_ot_offline(X_train, y_train)
 
+    sock.sendto(b's,gas_ot', (UDP_IP, UDP_PORT))
     st = time.time()
     results = train_baseline_ot.train_baseline_ot_online(X_train, y_train, X_test, model)
-    print('online exec time: {} secs'.format(time.time() - st))
+    ed = time.time()
+    sock.sendto(b't,', (UDP_IP, UDP_PORT))
+    with open('time_log.txt', 'a+') as f:
+        f.write('gas ot online exec time: {} secs\n'.format(ed - st))
 
     train_baseline_ot.evaluate(y_test, results)
 
@@ -149,9 +177,13 @@ def run_mnist_ot_from_saved(transformation):
         #print(X_test_noise.shape)
         supervised_classifier  = train_mnist_ot.load_model()
 
+        sock.sendto(b's,mnist_ot', (UDP_IP, UDP_PORT))
         st = time.time()
         result = train_mnist_ot.train_mnist_ot_online( X_train_small, y_train_small, X_test_noise,supervised_classifier)
-        print('online {} exec time: {} secs'.format(transformation, time.time() - st))
+        ed = time.time()
+        sock.sendto(b't,', (UDP_IP, UDP_PORT))
+        with open('time_log.txt', 'a+') as f:
+            f.write('mnist ot online {} exec time: {} secs'.format(transformation, ed - st))
 
     elif transformation == 'rotate':
         # rotate
@@ -190,9 +222,13 @@ def run_gas_baseline_lssvm():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')    
     model = train_baseline_lssvm.train_baseline_lssvm_offline(X_train, y_train)
 
+    sock.sendto(b's,gas_lssvm', (UDP_IP, UDP_PORT))
     st = time.time()
     results = train_baseline_lssvm.train_baseline_lssvm_online( X_test, model)
-    print( 'online exec time: {} secs'.format(time.time() - st))
+    ed = time.time()
+    sock.sendto(b't,', (UDP_IP, UDP_PORT))
+    with open('time_log.txt', 'a+') as f:
+        f.write( 'gas lssvm online exec time: {} secs\n'.format(ed - st))
     
     train_baseline_lssvm.evaluate(y_test, results)
 
@@ -213,8 +249,8 @@ if dataset_name == 'gas':
 
         run_gas_from_saved()
 elif dataset_name == 'mnist':
-    if len(args) == 4:
-        if args[3] == 'noise':
+    if len(args) == 3:
+        if args[2] == 'noise':
             run_mnist_noise()
         elif args[2] == 'rotate':
             run_mnist_rotate()

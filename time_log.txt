@@ -1,0 +1,5 @@
+gas lssvm online exec time: 9141.24368929863 secs
+gas SOA online exec time: 1451.3244724273682 secs
+mnist SOA noise online exec time: 1573.481841802597 secs
+gas ot online exec time: 2720.3307995796204 secs
+mnist ot online noise exec time: 2617.6767559051514 secs

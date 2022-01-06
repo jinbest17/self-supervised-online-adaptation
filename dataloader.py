@@ -36,11 +36,12 @@ def load_data(dataset_name, use_imb=True):
             y_test = np.concatenate((y_test, data[i-3][1]))
         X_test = normalize(Xmin,Xmax,X_test)
         X_train = normalize(Xmin,Xmax,X_train)
-        print(X_train.shape)
-        print(X_test.shape)
+        X_train = np.asarray(X_train).astype(np.float32)
+        print(type(X_train))
+        print(type(X_test))
         le = preprocessing.LabelEncoder()
-        y_train = le.fit_transform(y_train)
-        y_test = le.transform(y_test)
+        y_train = np.asarray(le.fit_transform(y_train)).astype(np.int32)
+        y_test = np.asarray(le.transform(y_test)).astype(np.int32)
         
         return X_train, y_train, X_test, y_test
     elif dataset_name == 'mnist':
@@ -49,11 +50,14 @@ def load_data(dataset_name, use_imb=True):
         X_train, X_test = X_train / 255.0, X_test / 255.0
 
         X_train = np.expand_dims(X_train, axis=-1)
+        X_train = np.asarray(X_train).astype(np.float32)
         X_test = np.expand_dims(X_test, axis=-1)
+        print(type(X_train))
+        print(type(X_test))
 
         le = preprocessing.LabelEncoder()
-        y_train = le.fit_transform(y_train)
-        y_test = le.transform(y_test)
+        y_train = np.asarray(le.fit_transform(y_train)).astype(np.int32)
+        y_test = np.asarray(le.transform(y_test)).astype(np.int32)
 
         return X_train, y_train, X_test, y_test
                 
