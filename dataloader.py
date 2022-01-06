@@ -1,4 +1,4 @@
-from sklearn.utils import shuffle
+#from sklearn.utils import shuffle
 from sklearn.datasets import load_svmlight_file
 from imblearn.over_sampling import SMOTE
 import numpy as np

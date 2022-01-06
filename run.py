@@ -7,15 +7,26 @@ import dataloader
 import numpy as np
 import sys
 import pickle
+import time
 
 def run_gas():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')
     supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3 = train.train_gas_offline(X_train, y_train, X_test, y_test)
+
+    st = time.time()
     results = train.train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train, y_train,X_test)
+    print('online exec time: {} secs'.format(time.time() - st))
+
     train.evaluate(y_test, results)
+
+
 def run_gas_from_saved():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')
+
+    st = time.time()
     results = train.train_gas_online_saved(X_train, y_train,X_test,y_test)
+    print('online exec time: {} secs'.format(time.time() - st))
+
     train.evaluate(y_test, results)
 
     
@@ -78,19 +89,30 @@ def run_mnist_from_saved(transformation):
         X_test_noise = X_test + noise
         #print(X_test_noise.shape)
         supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3 = train_MNIST.load_model()
+
+        st = time.time()
         result = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_noise)
+        print('online {} exec time: {} secs'.format(transformation, time.time() - st))
+
     elif transformation == 'rotate':
         # rotate
         X_test_rotate = np.array([np.rot90(img) for img in X_test])
         supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
+
+        st = time.time()
         result= train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_rotate)
+        print('online {} exec time: {} secs'.format(transformation, time.time() - st))
+
     elif transformation == 'permutation':
         # permutation
         X_test_perm_interim = np.array([np.random.permutation(img) for img in X_test])
         X_test_perm_rot = np.array([np.rot90(img) for img in X_test_perm_interim])
         X_test_perm = np.array([np.random.permutation(img) for img in X_test_perm_rot])
         supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
+
+        st = time.time()
         result = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_perm)
+        print('online {} exec time: {} secs'.format(transformation, time.time() - st))
     
     results = {
         'results_'+transformation :result,
@@ -101,8 +123,14 @@ def run_mnist_from_saved(transformation):
 def run_gas_baseline_ot():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')    
     model = train_baseline_ot.train_baseline_ot_offline(X_train, y_train)
+
+    st = time.time()
     results = train_baseline_ot.train_baseline_ot_online(X_train, y_train, X_test, model)
+    print('online exec time: {} secs'.format(time.time() - st))
+
     train_baseline_ot.evaluate(y_test, results)
+
+
 def run_mnist_ot_from_saved(transformation):
     N_DATA_TRAIN = 800
     X_train, y_train, X_test, y_test = dataloader.load_data('mnist')
@@ -120,24 +148,37 @@ def run_mnist_ot_from_saved(transformation):
         X_test_noise = X_test + noise
         #print(X_test_noise.shape)
         supervised_classifier  = train_mnist_ot.load_model()
+
+        st = time.time()
         result = train_mnist_ot.train_mnist_ot_online( X_train_small, y_train_small, X_test_noise,supervised_classifier)
+        print('online {} exec time: {} secs'.format(transformation, time.time() - st))
+
     elif transformation == 'rotate':
         # rotate
         X_test_rotate = np.array([np.rot90(img) for img in X_test])
         supervised_classifier  = train_mnist_ot.load_model()
+
+        st = time.time()
         result = train_mnist_ot.train_mnist_ot_online( X_train_small, y_train_small, X_test_rotate,supervised_classifier)
+        print('online {} exec time: {} secs'.format(transformation, time.time() - st))
+
     elif transformation == 'permutation':
         # permutation
         X_test_perm_interim = np.array([np.random.permutation(img) for img in X_test])
         X_test_perm_rot = np.array([np.rot90(img) for img in X_test_perm_interim])
         X_test_perm = np.array([np.random.permutation(img) for img in X_test_perm_rot])
         supervised_classifier  = train_mnist_ot.load_model()
+
+        st = time.time()
         result = train_mnist_ot.train_mnist_ot_online( X_train_small, y_train_small, X_test_perm,supervised_classifier)
+        print('online {} exec time: {} secs'.format(transformation, time.time() - st))
+
     count = 0
     for i in range(len(result)):
         if result[i] == y_test[i]:
             count+=1
     print(count /len(result) )
+
     results = {
         'results_'+transformation :result,
         'true_label':y_test
@@ -148,7 +189,10 @@ def run_mnist_ot_from_saved(transformation):
 def run_gas_baseline_lssvm():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')    
     model = train_baseline_lssvm.train_baseline_lssvm_offline(X_train, y_train)
+
+    st = time.time()
     results = train_baseline_lssvm.train_baseline_lssvm_online( X_test, model)
+    print( 'online exec time: {} secs'.format(time.time() - st))
     
     train_baseline_lssvm.evaluate(y_test, results)
 

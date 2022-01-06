@@ -1,16 +1,16 @@
 import tensorflow as tf
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import *
-from tqdm.notebook import tqdm
-from sklearn.utils import shuffle
-import tensorflow_datasets as tfds
-import matplotlib.pyplot as plt
+#from tqdm.notebook import tqdm
+#from sklearn.utils import shuffle
+#import tensorflow_datasets as tfds
+#import matplotlib.pyplot as plt
 import numpy as np
 import losses
-import dataloader
-from sklearn.datasets import load_svmlight_file
-import pickle
-import seaborn as sns
+#import dataloader
+#from sklearn.datasets import load_svmlight_file
+#import pickle
+#import seaborn as sns
 from collections import defaultdict
 
 tf.random.set_seed(666)

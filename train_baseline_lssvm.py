@@ -1,17 +1,17 @@
 import numpy as np
-from numpy.random import seed
-from numpy.random import randint
+#from numpy.random import seed
+#from numpy.random import randint
 from sklearn.cluster import KMeans
-from sklearn.datasets import load_svmlight_file
+#from sklearn.datasets import load_svmlight_file
 from sklearn.utils import shuffle
 from sklearn.utils import random
 from lssvm import LSSVC
 from collections import defaultdict
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.colors as clrs
+#import matplotlib
+#import matplotlib.pyplot as plt
+#import matplotlib.colors as clrs
 
-import pandas as pd
+#import pandas as pd
 
 
 def train_baseline_lssvm_offline(X, y):
