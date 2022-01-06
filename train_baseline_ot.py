@@ -95,6 +95,7 @@ def evaluate(y_true, y_pred):
     counttotal = 0
     count = 1
     i = 0
+    accu = ""
     while count < 10:
         
         if y_true[i] == y_pred[i]:
@@ -103,7 +104,9 @@ def evaluate(y_true, y_pred):
         i+= 1
         if counttotal == batch_length[count]:
             print("Batch", count+1, " Accuracy is: ", countnum/counttotal)
+            accu = accu + ',' + str(countnum/counttotal)
             countnum = 0
             counttotal = 0
             count+= 1
+    print(accu)
     

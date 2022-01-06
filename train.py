@@ -78,8 +78,8 @@ def projector_net():
 def train_gas_offline(X_train, y_train, X_test, y_test, verbose=True): 
     IMG_SHAPE = 128
     BS = 80
-    EPOCH_FEATURE = 90
-    EPOCH_CLASSIFIER = 150
+    EPOCH_FEATURE = 100
+    EPOCH_CLASSIFIER = 100
     EPOCH_FEATURE_ADAPT = 100
     EPOCH_CLASSIFIER_ADAPT = 100
     LOG_EVERY = 10
@@ -129,9 +129,10 @@ def train_gas_offline(X_train, y_train, X_test, y_test, verbose=True):
             loss = train_step(images, labels)
             epoch_loss_avg.update_state(loss) 
         #if epoch_loss_avg.result() < 0.001:
-            
-        train_loss_results.append(epoch_loss_avg.result())
         
+        train_loss_results.append(epoch_loss_avg.result())
+        if epoch_loss_avg.result() < 0.004:
+            break
         if verbose == True and epoch % LOG_EVERY == 0:
             print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
     #print(train_loss_results[-10:])
@@ -167,13 +168,13 @@ def train_gas_offline(X_train, y_train, X_test, y_test, verbose=True):
     
     return supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3
 
-def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train, y_train, X_test, verbose=True):
+def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train, y_train, X_test, y_test, verbose=True):
     EPOCH_FEATURE_ADAPT = 25
     EPOCH_CLASSIFIER_ADAPT = 60
     LOG_EVERY = 10
     BS = 80
     AUTO = tf.data.experimental.AUTOTUNE
-    CONFIDENCE_THRESHOLD = 0.80
+    CONFIDENCE_THRESHOLD = 0.85
     @tf.function
     def train_step(images, labels):
         with tf.GradientTape() as tape:
@@ -212,8 +213,12 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
     
     results = []
     results = []
-    #max_scores = []
-
+    max_scores = []
+    pseudo_label_accuracy = []
+    contrastive_loss = []
+    training_accuracy = []
+    retrains=[0]
+    label_accuracy = 0
     count = 0
     BATH_SIZE_ADAPT = 60
     new_samples_dict = defaultdict(list)
@@ -227,7 +232,7 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
         label = sample_score.argmax() 
         results.append(label)    
         max_score = sample_score.max()
-        #max_scores.append(max_score)
+        max_scores.append(max_score)
         if max_score < mean_score[label]  and  max_score > lowerbound[label]:
             # add to new training sample
             if accumulate_count[label] >= len(sample_per_class[label]):
@@ -235,10 +240,15 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
             sample_per_class[label][accumulate_count[label]] = X_test[i]
             accumulate_count[label] += 1
             count+=1
+            if label == y_test[i]:
+                label_accuracy += 1
             
             
         # if we accumulate enough samples
         if count >= BATH_SIZE_ADAPT:
+            pseudo_label_accuracy.append(label_accuracy/60)
+            label_accuracy = 0
+            retrains.append(i)
             if verbose == True:
                 print("New adaptation initiated at sample", i)
                 print_batch_size(sample_per_class)
@@ -282,10 +292,10 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
                     print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
             encoder_r.trainable = False
             projector_z.trainable = False
-            
-            supervised_classifier.fit(train_ds,
+            contrastive_loss.append(train_loss_results[-1])
+            hist=supervised_classifier.fit(train_ds,
                 epochs=EPOCH_CLASSIFIER_ADAPT, verbose=1 if verbose else 0,callbacks=[EarlyStoppingByAccuracy()])
-            
+            training_accuracy.append(hist.history['loss'])
             count = 0
             
             
@@ -308,6 +318,15 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
             #optimizer2=tf.keras.optimizers.Adam(learning_rate=1e-3 )
 
             lowerbound = [mean_score[j] * CONFIDENCE_THRESHOLD for j in range(0,6)]
+    saved = {
+      'contrastive_loss':contrastive_loss,
+      'results':results,
+      'steps': retrains,
+      'scores':max_scores,
+      'pseudo_label_accuracy':pseudo_label_accuracy,
+      'y_test':y_test
+    }
+    pickle.dump(saved, open('saved2.p','wb'))
     return results
 
 def train_gas_online_saved(X_train,y_train,X_test,y_test,verbose = True):
