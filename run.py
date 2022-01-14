@@ -3,6 +3,8 @@ import train_MNIST
 import train_baseline_lssvm
 import train_baseline_ot
 import train_mnist_ot
+import train_CIFAR
+import train_GTSRB
 import dataloader
 import numpy as np
 import sys
@@ -144,6 +146,64 @@ def run_mnist_from_saved(transformation):
     }
     pickle.dump(results, open('./saved_results/mnist_results'+transformation+'.p', "wb"))
 
+def run_cifar_rotate():
+    X_train, y_train, X_test, y_test = dataloader.load_data('cifar')
+   
+    # rotate
+    X_test_rotate = np.array([np.rot90(img) for img in X_test])
+    supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_CIFAR.train_mnist_offline(X_train, y_train)
+
+    sock.sendto(b's,mnist_SOA_rotate', (UDP_IP, UDP_PORT))
+    st = time.time()
+    result_rotate = train_CIFAR.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_rotate)
+    ed = time.time()
+    sock.sendto(b't,', (UDP_IP, UDP_PORT))
+
+
+    results = {
+        'results_rotate':result_rotate,
+        'true_label':y_test
+    }
+    pickle.dump(results, open('./saved_results/cifar_results_rotate.p', "wb"))
+
+
+def run_cifar_noise():
+    X_train, y_train, X_test, y_test = dataloader.load_data('cifar')
+    # noise
+    noise = np.random.normal(0, 0.3, X_test.shape)
+    X_test_noise = X_test + noise
+    #print(X_test_noise.shape)
+    supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_CIFAR.train_mnist_offline(X_train, y_train)
+    
+    sock.sendto(b's,mnist_SOA_noise', (UDP_IP, UDP_PORT))
+    st = time.time()
+    result_noise = train_CIFAR.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_noise)
+    ed = time.time()
+    sock.sendto(b't,', (UDP_IP, UDP_PORT))
+    with open('time_log.txt', 'a+') as f:
+        f.write('mnist SOA noise online exec time: {} secs\n'.format(ed - st))
+
+
+    results = {
+        'results_noise' :result_noise,
+        'true_label':y_test
+    }
+    pickle.dump(results, open('./saved_results/cifar_results_noise.p', "wb"))
+def run_cifar_perm():
+    X_train, y_train, X_test, y_test = dataloader.load_data('cifar')
+    # permutation
+    X_test_perm_interim = np.array([np.random.permutation(img) for img in X_test])
+    X_test_perm_rot = np.array([np.rot90(img) for img in X_test_perm_interim])
+    X_test_perm = np.array([np.random.permutation(img) for img in X_test_perm_rot])
+    supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_CIFAR.train_mnist_offline(X_train, y_train)
+    result_perm = train_CIFAR.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_perm)
+    
+    results = {
+        'results_perm':result_perm,
+        'true_label':y_test
+    }
+    pickle.dump(results, open('./saved_results/cifar_results_perm.p', "wb"))
+
 def run_gas_baseline_ot():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')    
     model = train_baseline_ot.train_baseline_ot_offline(X_train, y_train)
@@ -262,5 +322,20 @@ elif dataset_name == 'mnist':
 
         elif args[2] == 'SOA':
             run_mnist_from_saved(args[3])
+
+elif dataset_name == 'cifar':
+    if len(args) == 3:
+        if args[2] == 'noise':
+            run_cifar_noise()
+        elif args[2] == 'rotate':
+            run_cifar_rotate()
+        elif args[2] == 'permutation':
+            run_cifar_perm()
+    # else:
+    #     if args[2] == 'ot':
+    #         run_mnist_ot_from_saved(args[3])
+
+    #     elif args[2] == 'SOA':
+    #         run_mnist_from_saved(args[3])
 
     

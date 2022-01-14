@@ -33,8 +33,8 @@ BATCH_SIZE = 32
 PROJECTION_DIM = 128
 WRITE_SUMMARY = False
 ACTIVATION = 'leaky_relu'
-IMG_SHAPE = 28
-input_shape = (28,28,1)
+IMG_SHAPE = 32
+input_shape = (32,32,1)
 AUTO = tf.data.experimental.AUTOTUNE
 CONFIDENCE_THRESHOLD = 0.9
 
@@ -230,7 +230,7 @@ def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2
     
     for i in range(0,len(X_test)):
         
-        sample_score = supervised_classifier.predict(X_test[i].reshape(1,28,28,1))
+        sample_score = supervised_classifier.predict(X_test[i].reshape(1,32,32,1))
         label = sample_score.argmax() 
         results.append(label)    
         max_score = sample_score.max()
