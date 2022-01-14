@@ -1,6 +1,6 @@
 #from sklearn.utils import shuffle
 from sklearn.datasets import load_svmlight_file
-from imblearn.over_sampling import SMOTE
+#from imblearn.over_sampling import SMOTE
 import pickle
 import numpy as np
 from sklearn import preprocessing
@@ -48,15 +48,15 @@ def load_data(dataset_name, use_imb=True):
         X_all = []
         y_all = []
         
-        oversample = SMOTE()
+        #oversample = SMOTE()
         data_path = '../Dataset'
         X_y_train = load_svmlight_file(data_path + "/batch" +str(1)+".dat")
         X_train = X_y_train[0].toarray()
         y_train = X_y_train[1]
         Xmin = X_train.min(axis=0)
         Xmax = X_train.max(axis=0)
-        if use_imb:
-            X_train, y_train = oversample.fit_resample(X_train, y_train)
+        #if use_imb:
+            #X_train, y_train = oversample.fit_resample(X_train, y_train)
         X_y_test = load_svmlight_file(data_path + "/batch" +str(2)+".dat")
         X_test = X_y_test[0].toarray()
         y_test = X_y_test[1]
