@@ -1,9 +1,12 @@
 #from sklearn.utils import shuffle
 from sklearn.datasets import load_svmlight_file
 from imblearn.over_sampling import SMOTE
+import pickle
 import numpy as np
 from sklearn import preprocessing
+from sklearn.utils import shuffle
 import tensorflow as tf
+import cv2
 
 def normalize(Xmin, Xmax, X):
     for i in range(0, len(X)):
@@ -91,8 +94,17 @@ def load_data(dataset_name, use_imb=True):
     elif dataset_name == 'cifar':
         cifar = tf.keras.datasets.cifar10
         (X_train, y_train), (X_test, y_test) = cifar.load_data()
+        X_train = [cv2.cvtColor(X_train[i], cv2.COLOR_RGB2GRAY) for i in range(len(X_train))]
+        X_test = [cv2.cvtColor(X_test[i], cv2.COLOR_RGB2GRAY) for i in range(len(X_test))]
+
+        X_train = np.asarray(X_train).astype(np.float32)
+        X_test = np.asarray(X_test).astype(np.float32)
+
         X_train, X_test = X_train / 255.0, X_test / 255.0
-        
+        X_train = np.expand_dims(X_train, axis=-1)
+        X_test = np.expand_dims(X_test, axis=-1)
+
+
         le = preprocessing.LabelEncoder()
         y_train = np.asarray(le.fit_transform(y_train)).astype(np.int32)
         y_test = np.asarray(le.transform(y_test)).astype(np.int32)
@@ -107,22 +119,24 @@ def load_data(dataset_name, use_imb=True):
 
         with open(training_file, mode='rb') as f:
             train = pickle.load(f)
-        #with open(validation_file, mode='rb') as f:
-            #valid = pickle.load(f)
+        with open(validation_file, mode='rb') as f:
+            valid = pickle.load(f)
         with open(testing_file, mode='rb') as f:
             test = pickle.load(f)
             
-        # Mapping ClassID to traffic sign names
-        signs = []
-        with open('signnames.csv', 'r') as csvfile:
-            signnames = csv.reader(csvfile, delimiter=',')
-            next(signnames,None)
-            for row in signnames:
-                signs.append(row[1])
-            csvfile.close()
+        
         X_train, y_train = train['features'], train['labels']
         X_valid, y_valid = valid['features'], valid['labels']
         X_test, y_test = test['features'], test['labels']
+        X_train = [cv2.cvtColor(X_train[i], cv2.COLOR_RGB2GRAY) for i in range(len(X_train))]
+        X_test = [cv2.cvtColor(X_test[i], cv2.COLOR_RGB2GRAY) for i in range(len(X_test))]
+
+        X_train = np.asarray(X_train).astype(np.float32)
+        X_test = np.asarray(X_test).astype(np.float32)
+
+        X_train, X_test = X_train / 255.0, X_test / 255.0
+        X_train = np.expand_dims(X_train, axis=-1)
+        X_test = np.expand_dims(X_test, axis=-1)
         X_train, y_train = shuffle(X_train, y_train)
         
                 
