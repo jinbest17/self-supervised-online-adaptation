@@ -6,7 +6,6 @@ from tensorflow.keras.layers import *
 from tensorflow.keras.models import *
 from sklearn.utils import shuffle
 from sklearn import preprocessing
-import tensorflow_datasets as tfds
 import matplotlib.pyplot as plt
 import numpy as np
 import losses
