@@ -23,7 +23,20 @@ UDP_IP = "169.254.200.28"
 UDP_PORT = 30000
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-
+# global configs
+EPOCHS = 20
+DATA = 'mnist-regression'
+NORMALIZE_EMBEDDING = True
+# NORMALIZE_EMBEDDING = False
+#N_DATA_TRAIN = 60000
+N_DATA_TRAIN = 800
+BATCH_SIZE = 64
+PROJECTION_DIM = 128
+WRITE_SUMMARY = False
+ACTIVATION = 'leaky_relu'
+IMG_SHAPE = 32
+input_shape = (32,32,3)
+AUTO = tf.data.experimental.AUTOTUNE
 # Reference: https://github.com/wangz10/contrastive_loss/blob/master/model.py
 class UnitNormLayer(tf.keras.layers.Layer):
     '''Normalize vectors (euclidean norm) in batch to unit hypersphere.
