@@ -18,6 +18,13 @@ import cv2
 import seaborn as sns
 from collections import Counter
 from collections import defaultdict
+import sys
+import time
+import socket
+
+UDP_IP = "169.254.200.28"
+UDP_PORT = 30000
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 
 # Reference: https://github.com/wangz10/contrastive_loss/blob/master/model.py
@@ -112,6 +119,8 @@ def train_step(images, labels):
 
 	return loss
 
+sock.sendto(b's,gas_SOA', (UDP_IP, UDP_PORT))
+
 optimizer3=tf.keras.optimizers.Adam(learning_rate=0.001 )
 encoder_r = encoder_net()
 projector_z = projector_net()
@@ -133,13 +142,14 @@ with open("class_center.p","rb") as handler:
 avg_distance_train = class_center['avg_distance_train']
 train_proj_by_class = class_center['train_proj_by_class']
 
+st = time.time()
 
 
 X_target = []
 y_target = []
 BATCH_SIZE = 64
-NUM_TEST = 8000
-BS_ADAPT = 500
+NUM_TEST = 3200
+BS_ADAPT = 400
 NUM_BATCH = NUM_TEST // BS_ADAPT
 for i in range(0,NUM_BATCH):
     
@@ -179,3 +189,9 @@ for i in range(0,NUM_BATCH):
     projector_z.trainable = False
     supervised_classifier.fit(train_ds,
         epochs=3)
+
+ed = time.time()
+sock.sendto(b't,', (UDP_IP, UDP_PORT))
+with open('time_log.txt', 'a+') as f:
+    f.write('gas SOA online exec time: {} secs\n'.format(ed - st))
+
