@@ -12,6 +12,8 @@ import losses
 #import pickle
 #import seaborn as sns
 from collections import defaultdict
+from collections import Counter
+from imblearn.under_sampling import RandomUnderSampler
 
 tf.random.set_seed(666)
 np.random.seed(666)
@@ -108,6 +110,46 @@ def projector_net():
 
 	return projector
 
+
+def get_threshold_mnist(X_train_proj, y_train):
+    class_count_train = Counter(y_train)
+
+    def def_value_b():
+        return np.zeros(X_train_proj[0].shape)
+    train_proj_by_class = defaultdict(def_value_b)
+    for i in range(1, len(X_train)):
+        train_proj_by_class[y_train[i]] += X_train_proj[i]
+    for i in range(0,10):
+        train_proj_by_class[i] = train_proj_by_class[i] / class_count_train[i]
+    distance_train = defaultdict(list)
+    avg_distance_train = {}
+    for i in range(len(X_train_proj)):
+        distance_train[y_train[i]].append(np.linalg.norm(X_train_proj[i] - train_proj_by_class[y_train[i]]))
+
+    for i in range(0,10):
+        avg_distance_train[i] = np.mean(distance_train[i])
+    return avg_disatnce_train, train_proj_by_class
+
+def retrain_contrastive(encoder_r, projector_z, train_ds):
+    EPOCHS =20
+    LOG_EVERY = 10
+    train_loss_results = []
+    encoder_r.trainable = True
+    projector_z.trainable = True
+    for epoch in tqdm(range(EPOCHS)):	
+        epoch_loss_avg = tf.keras.metrics.Mean()
+
+        for (images, labels) in train_ds:
+            loss = train_step(images, labels)
+            epoch_loss_avg.update_state(loss) 
+
+        train_loss_results.append(epoch_loss_avg.result())
+        if epoch_loss_avg.result() < 0.005:
+            print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
+            print("Encoder train exiting")
+            break
+        if epoch % LOG_EVERY == 0:
+            print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
 def train_mnist_offline(X_train, y_train): 
     
     # simulate low data regime for training
@@ -190,7 +232,7 @@ def train_mnist_offline(X_train, y_train):
     
     
 
-def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test, verbose=False):
+def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test, train_proj_by_class,avg_distance_train,verbose=False):
     @tf.function
     def train_step(images, labels):
         with tf.GradientTape() as tape:
@@ -204,100 +246,53 @@ def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2
             encoder_r.trainable_variables + projector_z.trainable_variables))
 
         return loss
-    # Calculate score for each class in train
-    score_batch1 = supervised_classifier.predict(X_train_small)
-    score_max_1 = score_batch1.max(axis=1)
-    scores_per_class = defaultdict(list)
-    for i in range(len(y_train_small)):
-        scores_per_class[y_train_small[i]].append(score_max_1[i])
-    mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
-    print(mean_score)
-
-    sample_per_class = defaultdict(list)
-    for i in range(len(y_train_small)):
-        sample_per_class[y_train_small[i]].append(X_train_small[i])
-    for key in sample_per_class:
-        print(len(sample_per_class[key]))
-    
     results = []
-    #max_scores = []
 
-    count = 0
-    BATH_SIZE_ADAPT = 100
-    new_samples_dict = defaultdict(list)
-    accumulate_count = {0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0}
-    lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
-    
-    for i in range(0,len(X_test)):
+    X_target = []
+    y_target = []
+    BATCH_SIZE = 32
+    NUM_TEST = 3200
+    BS_ADAPT = 300
+    NUM_BATCH = NUM_TEST // BS_ADAPT
+    for i in range(0,NUM_BATCH):
+        X_batch = X_test[i*BS_ADAPT:(i+1)*BS_ADAPT].reshape(BS_ADAPT,28,28,1)
+        batch_proj = projector_z.predict(encoder_r.predict(X_batch))
+        sample_score = supervised_classifier.predict(X_batch)
+        labels = sample_score.argmax(axis=1) 
+        print("training batch"+(i*BS_ADAPT))
+        results_all = np.concatenate((results_all, labels))    
+        X_target = []
+        y_target = []
+        for j in range(0, BS_ADAPT):
+            d = np.linalg.norm(batch_proj[j] - train_proj_by_class[labels[j]])
+            if d < avg_distance_train[labels[j]] + 0.35:
+                X_target.append(X_batch[j])
+                y_target.append(labels[j])
+        #print(Counter(y_target))
+        X_target = np.array(X_target).reshape(len(y_target), -1)
+        #print(X_target.shape)
+
+        y_target = np.array(y_target)
         
-        sample_score = supervised_classifier.predict(X_test[i].reshape(1,28,28,1))
-        label = sample_score.argmax() 
-        results.append(label)    
-        max_score = sample_score.max()
-        #max_scores.append(max_score)
-        if max_score < mean_score[label]  and  max_score > lowerbound[label]:
-            # add to new training sample
-            if accumulate_count[label] >= len(sample_per_class[label]):
-                accumulate_count[label] = 0
-            sample_per_class[label][accumulate_count[label]] = X_test[i]
-            accumulate_count[label] += 1
-            count+=1
-            
-            
-        # if we accumulate enough samples
-        if count >= BATH_SIZE_ADAPT:
-            print("New adaptation initiated at sample", i)
-            print_batch_size(sample_per_class)
-            # form target batch
-            X_target =[]
-            y_target = []
+        X_target, y_target = rus.fit_resample(X_target,y_target)
+        print(Counter(y_target))
 
-            for key in sample_per_class:
-                X_target = X_target + sample_per_class[key]
-                y_target = np.concatenate((y_target,[key]*len(sample_per_class[key])))        
-            
-            X_target = np.array(X_target)
-
-            print(X_target.shape, y_target.shape)
-            train_ds=tf.data.Dataset.from_tensor_slices((X_target,y_target))
-            train_ds = (
-                train_ds
-                .shuffle(100)
-                .batch(BS)
-                .prefetch(AUTO)
-            )
-            
-            train_loss_results = []
-            encoder_r.trainable = True
-            projector_z.trainable = True
-            for epoch in range(EPOCH_FEATURE_ADAPT):	
-                epoch_loss_avg = tf.keras.metrics.Mean()
-
-                for (images, labels) in train_ds:
-                    loss = train_step(images, labels)
-                    epoch_loss_avg.update_state(loss) 
-
-                train_loss_results.append(epoch_loss_avg.result())
-                if epoch_loss_avg.result() < 0.004:
-                    print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
-                    print("Encoder train exiting")
-                    break
-                if epoch % LOG_EVERY == 0:
-                    print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
-            encoder_r.trainable = False
-            projector_z.trainable = False
-            supervised_classifier.fit(train_ds,
-                epochs=EPOCH_CLASSIFIER_ADAPT, verbose=1,callbacks=[EarlyStoppingByAccuracy()])
-            
-            count = 0
-            scores_per_class = defaultdict(list)
-            score_batch1 = supervised_classifier.predict(X_target)
-            score_max_1 = score_batch1.max(axis=1)
-            for i in range(len(y_target)):
-                scores_per_class[y_target[i]].append(score_max_1[i])
-            mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
-            print(mean_score)
-            lowerbound = {key: mean_score[key] * CONFIDENCE_THRESHOLD for key in mean_score}
+        #print(X_target.shape, y_target.shape)
+        X_target = X_target.reshape(len(y_target), 28,28,1)
+        train_ds=tf.data.Dataset.from_tensor_slices((X_target,y_target))
+        train_ds = (
+          train_ds
+          .shuffle(100)
+          .batch(BATCH_SIZE)
+          .prefetch(AUTO)
+        )
+        
+        retrain_contrastive(encoder_r, projector_z, train_ds)
+        encoder_r.trainable = False
+        projector_z.trainable = False
+        supervised_classifier.fit(train_ds,
+            epochs=3)
+        
     return results
 
 def load_model():
