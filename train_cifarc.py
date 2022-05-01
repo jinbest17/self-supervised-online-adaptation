@@ -130,7 +130,7 @@ def train_step(images, labels):
 
 	return loss
 
-sock.sendto(b's,gas_SOA', (UDP_IP, UDP_PORT))
+sock.sendto(b's,cifar_SOA', (UDP_IP, UDP_PORT))
 
 optimizer3=tf.keras.optimizers.Adam(learning_rate=0.001 )
 encoder_r = encoder_net()
@@ -155,7 +155,7 @@ train_proj_by_class = class_center['train_proj_y_class']
 
 st = time.time()
 
-
+results = []
 X_target = []
 y_target = []
 BATCH_SIZE = 64
@@ -168,8 +168,7 @@ for i in range(0,NUM_BATCH):
     batch_proj = projector_z.predict(encoder_r.predict(X_batch))
     sample_score = supervised_classifier.predict(X_batch)
     labels = sample_score.argmax(axis=1) 
-    print(k)
-    results_all[k] = np.concatenate((results_all[k], labels))    
+    results = np.concatenate((results, labels))    
     X_target = []
     y_target = []
     for j in range(0, BS_ADAPT):
