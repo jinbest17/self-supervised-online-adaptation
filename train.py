@@ -74,8 +74,8 @@ def projector_net():
 		Dense(80, activation="relu"),
 		UnitNormLayer()
 	])
-    projector = Model(inputs, layer)
-    return projector
+    
+    return layer(inputs)
 
 
 def retrain_contrastive(encoder_r, projector_z, train_ds,optimizer3):
