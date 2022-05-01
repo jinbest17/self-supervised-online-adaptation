@@ -130,13 +130,28 @@ def get_threshold_mnist(X_train_proj, y_train):
         avg_distance_train[i] = np.mean(distance_train[i])
     return avg_disatnce_train, train_proj_by_class
 
-def retrain_contrastive(encoder_r, projector_z, train_ds):
+def retrain_contrastive(encoder_r, projector_z, train_ds,optimizer3):
+    @tf.function
+    def train_step(images, labels):
+        with tf.GradientTape() as tape:
+            r = encoder_r(images, training=True)
+            z = projector_z(r, training=True)
+            loss = losses.max_margin_contrastive_loss(z, labels)
+
+        gradients = tape.gradient(loss, 
+            encoder_r.trainable_variables + projector_z.trainable_variables)
+        optimizer3.apply_gradients(zip(gradients, 
+            encoder_r.trainable_variables + projector_z.trainable_variables))
+
+        return loss
+    
+    
     EPOCHS =20
     LOG_EVERY = 10
     train_loss_results = []
     encoder_r.trainable = True
     projector_z.trainable = True
-    for epoch in tqdm(range(EPOCHS)):	
+    for epoch in range(EPOCHS):	
         epoch_loss_avg = tf.keras.metrics.Mean()
 
         for (images, labels) in train_ds:
@@ -232,22 +247,22 @@ def train_mnist_offline(X_train, y_train):
     
     
 
-def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test, train_proj_by_class,avg_distance_train,verbose=False):
-    @tf.function
-    def train_step(images, labels):
-        with tf.GradientTape() as tape:
-            r = encoder_r(images, training=True)
-            z = projector_z(r, training=True)
-            loss = losses.max_margin_contrastive_loss(z, labels)
+def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test, train_proj_by_class,avg_distance_train,verbose=True):
+    # @tf.function
+    # def train_step(images, labels):
+    #     with tf.GradientTape() as tape:
+    #         r = encoder_r(images, training=True)
+    #         z = projector_z(r, training=True)
+    #         loss = losses.max_margin_contrastive_loss(z, labels)
 
-        gradients = tape.gradient(loss, 
-            encoder_r.trainable_variables + projector_z.trainable_variables)
-        optimizer3.apply_gradients(zip(gradients, 
-            encoder_r.trainable_variables + projector_z.trainable_variables))
+    #     gradients = tape.gradient(loss, 
+    #         encoder_r.trainable_variables + projector_z.trainable_variables)
+    #     optimizer3.apply_gradients(zip(gradients, 
+    #         encoder_r.trainable_variables + projector_z.trainable_variables))
 
-        return loss
+    #     return loss
     results = []
-
+    rus = RandomUnderSampler()
     X_target = []
     y_target = []
     BATCH_SIZE = 32
@@ -259,8 +274,8 @@ def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2
         batch_proj = projector_z.predict(encoder_r.predict(X_batch))
         sample_score = supervised_classifier.predict(X_batch)
         labels = sample_score.argmax(axis=1) 
-        print("training batch"+(i*BS_ADAPT))
-        results_all = np.concatenate((results_all, labels))    
+        print("training batch "+str(i*BS_ADAPT))
+        results = np.concatenate((results, labels))    
         X_target = []
         y_target = []
         for j in range(0, BS_ADAPT):
@@ -287,7 +302,7 @@ def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2
           .prefetch(AUTO)
         )
         
-        retrain_contrastive(encoder_r, projector_z, train_ds)
+        retrain_contrastive(encoder_r, projector_z, train_ds,optimizer3)
         encoder_r.trainable = False
         projector_z.trainable = False
         supervised_classifier.fit(train_ds,

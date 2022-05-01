@@ -11,8 +11,10 @@ import sys
 import pickle
 import time
 import socket
+from collections import Counter
+from collections import defaultdict
 
-UDP_IP = "169.254.16.45"
+UDP_IP = "169.254.200.28"
 UDP_PORT = 30000
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -68,10 +70,11 @@ def run_mnist_noise():
     X_test_noise = X_test + noise
     #print(X_test_noise.shape)
     supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
-    
+    X_train_proj = projector_z.predict(encoder_r.predict(X_train))
+    avg_disatnce_train, train_proj_by_class = get_threshold_mnist(X_train_proj, y_train)
     sock.sendto(b's,mnist_SOA_noise', (UDP_IP, UDP_PORT))
     st = time.time()
-    result_noise = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_noise)
+    result_noise = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_noise,train_proj_by_class,avg_distance_train)
     ed = time.time()
     sock.sendto(b't,', (UDP_IP, UDP_PORT))
     with open('time_log.txt', 'a+') as f:
@@ -97,7 +100,25 @@ def run_mnist_perm():
         'true_label':y_test
     }
     pickle.dump(results, open('./saved_results/mnist_results_perm.p', "wb"))
-    
+def get_threshold_mnist(X_train_proj, y_train):
+    class_count_train = Counter(y_train)
+
+    def def_value_b():
+        return np.zeros(X_train_proj[0].shape)
+    train_proj_by_class = defaultdict(def_value_b)
+    for i in range(1, len(X_train_proj)):
+        train_proj_by_class[y_train[i]] += X_train_proj[i]
+    for i in range(0,10):
+        train_proj_by_class[i] = train_proj_by_class[i] / class_count_train[i]
+    distance_train = defaultdict(list)
+    avg_distance_train = {}
+    for i in range(len(X_train_proj)):
+        distance_train[y_train[i]].append(np.linalg.norm(X_train_proj[i] - train_proj_by_class[y_train[i]]))
+
+    for i in range(0,10):
+        avg_distance_train[i] = np.mean(distance_train[i])
+    return avg_distance_train, train_proj_by_class
+   
 def run_mnist_from_saved(transformation):
     N_DATA_TRAIN = 800
     X_train, y_train, X_test, y_test = dataloader.load_data('mnist')
@@ -115,9 +136,18 @@ def run_mnist_from_saved(transformation):
         X_test_noise = X_test + noise
         #print(X_test_noise.shape)
         supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3 = train_MNIST.load_model()
-
+        #supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
+        X_train_proj = projector_z.predict(encoder_r.predict(X_train))
+        avg_distance_train, train_proj_by_class = get_threshold_mnist(X_train_proj, y_train)
+        sock.sendto(b's,mnist_SOA_noise', (UDP_IP, UDP_PORT))
         st = time.time()
-        result = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_noise)
+        result = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_noise,train_proj_by_class,avg_distance_train)
+        ed = time.time()
+        sock.sendto(b't,', (UDP_IP, UDP_PORT))
+        with open('time_log.txt', 'a+') as f:
+            f.write('mnist SOA noise online exec time: {} secs\n'.format(ed - st))
+
+        
         print('online {} exec time: {} secs'.format(transformation, time.time() - st))
 
     elif transformation == 'rotate':
