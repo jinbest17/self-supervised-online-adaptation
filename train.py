@@ -71,7 +71,7 @@ def encoder_net():
 def projector_net():
     inputs = Input((100,))
     layer = tf.keras.models.Sequential([
-		Dense(80, activation="relu",input_shape=(128,1)),
+		Dense(80, activation="relu",input_shape=(100,)),
 		UnitNormLayer()
 	])
     
