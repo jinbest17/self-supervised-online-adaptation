@@ -25,7 +25,7 @@ def run_gas():
 
     sock.sendto(b's,gas_SOA', (UDP_IP, UDP_PORT))
     st = time.time()
-    results = train.train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train, y_train,X_test)
+    results = train.train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train, y_train,X_test,y_test)
     ed = time.time()
     sock.sendto(b't,', (UDP_IP, UDP_PORT))
     with open('time_log.txt', 'a+') as f:
