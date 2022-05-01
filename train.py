@@ -71,11 +71,11 @@ def encoder_net():
 def projector_net():
     inputs = Input((100,))
     layer = tf.keras.models.Sequential([
-		Dense(80, activation="relu"),
+		Dense(80, activation="relu",input_shape=(128,1)),
 		UnitNormLayer()
 	])
     
-    return layer(inputs)
+    return layer
 
 
 def retrain_contrastive(encoder_r, projector_z, train_ds,optimizer3):
