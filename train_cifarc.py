@@ -4,7 +4,6 @@ import tensorflow as tf
 print(tf.__version__)
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import *
-from tqdm.notebook import tqdm
 from sklearn.utils import shuffle
 from sklearn import preprocessing
 import tensorflow_datasets as tfds
@@ -89,7 +88,7 @@ def retrain_contrastive(encoder_r, projector_z, train_ds):
   train_loss_results = []
   encoder_r.trainable = True
   projector_z.trainable = True
-  for epoch in tqdm(range(EPOCHS)):	
+  for epoch in range(EPOCHS):	
       epoch_loss_avg = tf.keras.metrics.Mean()
 
       for (images, labels) in train_ds:
