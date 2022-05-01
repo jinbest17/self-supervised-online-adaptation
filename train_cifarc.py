@@ -12,7 +12,7 @@ import losses
 from sklearn.datasets import load_svmlight_file
 import pickle
 
-
+from imblearn.under_sampling import RandomUnderSampler
 from collections import Counter
 from collections import defaultdict
 import sys
@@ -36,6 +36,7 @@ WRITE_SUMMARY = False
 ACTIVATION = 'leaky_relu'
 IMG_SHAPE = 32
 input_shape = (32,32,3)
+rus = RandomUnderSampler()
 AUTO = tf.data.experimental.AUTOTUNE
 # Reference: https://github.com/wangz10/contrastive_loss/blob/master/model.py
 class UnitNormLayer(tf.keras.layers.Layer):
