@@ -110,7 +110,7 @@ for i in range(0,NUM_BATCH):
     X_target = np.array(X_target)
     X_target,y_target = shuffle(X_target,y_target)
     X_target_reshaped = X_target.reshape((BS_ADAPT,-1))
-    X_target_reshaped,y_target = rus.fit_resample(X_target_reshaped,y_target)
+    #X_target_reshaped,y_target = rus.fit_resample(X_target_reshaped,y_target)
     print(X_target_reshaped.shape)
     ot_model.fit(Xs=X_target_reshaped, Xt=X_source)
     X_target_reshaped = np.asarray(X_target_reshaped).astype('float32')
