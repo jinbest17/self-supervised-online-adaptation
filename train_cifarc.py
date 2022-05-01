@@ -6,14 +6,13 @@ from tensorflow.keras.layers import *
 from tensorflow.keras.models import *
 from sklearn.utils import shuffle
 from sklearn import preprocessing
-import matplotlib.pyplot as plt
 import numpy as np
 import losses
-import pandas as pd
+
 from sklearn.datasets import load_svmlight_file
 import pickle
-import cv2
-import seaborn as sns
+
+
 from collections import Counter
 from collections import defaultdict
 import sys
