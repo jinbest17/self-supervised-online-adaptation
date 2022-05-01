@@ -113,6 +113,8 @@ for i in range(0,NUM_BATCH):
     X_target_reshaped,y_target = rus.fit_resample(X_target_reshaped,y_target)
     print(X_target_reshaped.shape)
     ot_model.fit(Xs=X_target_reshaped, Xt=X_source)
+    X_target_reshaped = np.asarray(X_target_reshaped).astype('float32')
+    y_target = np.asarray(y_target).astype('int32')
     model.fit(X_target_reshaped.reshape(-1,32,32,3),y_target, batch_size=80,epochs=50, callbacks=[EarlyStoppingByAccuracy()])
     X_source = X_target_reshaped
 
