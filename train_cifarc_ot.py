@@ -97,7 +97,7 @@ st = time.time()
 results = []
 
 for i in range(0,NUM_BATCH):
-    print("num adapted: "+str(NUM_BATCH*BS_ADAPT))
+    print("num adapted: "+str(i*BS_ADAPT))
     X_batch = X_test[i*BS_ADAPT:(i+1)*BS_ADAPT].reshape(BS_ADAPT,32,32,3)
     if i>0:
         label =  np.argmax(model.predict(ot_model.transform(X_batch.reshape((BS_ADAPT,-1))).reshape(BS_ADAPT,32,32,3)),axis=1)
