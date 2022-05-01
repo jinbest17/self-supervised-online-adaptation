@@ -4,3 +4,5 @@ mnist SOA noise online exec time: 1573.481841802597 secs
 gas ot online exec time: 2720.3307995796204 secs
 mnist ot online noise exec time: 2617.6767559051514 secsmnist SOA noise online exec time: 20.37919807434082 secs
 mnist SOA noise online exec time: 19.260003805160522 secs
+gas SOA online exec time: 33.82284903526306 secs
+gas SOA online exec time: 73.77464818954468 secs
