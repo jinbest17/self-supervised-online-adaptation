@@ -87,7 +87,7 @@ X_target = []
 y_target = []
 BATCH_SIZE = 64
 NUM_TEST = 3200
-BS_ADAPT = 100
+BS_ADAPT = 400
 NUM_BATCH = NUM_TEST // BS_ADAPT
 #start online adaptation
 sock.sendto(b's,cifar_ot', (UDP_IP, UDP_PORT))
