@@ -92,7 +92,8 @@ def supervised_model():
 
     supervised_model = Model(inputs, outputs)
     return supervised_model
-
+def def_value_b():
+    return np.zeros(X_train_proj[0].shape)
 def retrain_contrastive(encoder_r, projector_z, train_ds):
   EPOCHS =20
   LOG_EVERY = 10
