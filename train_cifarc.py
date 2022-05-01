@@ -151,7 +151,7 @@ with open("class_center.p","rb") as handler:
     class_center = pickle.load(handler)
 
 avg_distance_train = class_center['avg_distance_train']
-train_proj_by_class = class_center['train_proj_by_class']
+train_proj_by_class = class_center['train_proj_y_class']
 
 st = time.time()
 
