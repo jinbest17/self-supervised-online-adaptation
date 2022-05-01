@@ -294,6 +294,8 @@ def train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2
 
         #print(X_target.shape, y_target.shape)
         X_target = X_target.reshape(len(y_target), 28,28,1)
+        X_target = np.asarray(X_target).astype('float32')
+        y_target = np.asarray(y_target).astype('int32')
         train_ds=tf.data.Dataset.from_tensor_slices((X_target,y_target))
         train_ds = (
           train_ds

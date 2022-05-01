@@ -12,7 +12,7 @@ import losses
 #import pickle
 #import seaborn as sns
 from collections import defaultdict
-
+from collections import Counter
 tf.random.set_seed(666)
 np.random.seed(666)
 
@@ -34,7 +34,7 @@ def print_batch_size(samples):
         
 # https://stackoverflow.com/questions/50127257/is-there-any-way-to-stop-training-a-model-in-keras-after-a-certain-accuracy-has/50127361       
 class EarlyStoppingByAccuracy(tf.keras.callbacks.Callback):
-    def __init__(self, monitor='sparse_categorical_accuracy', value=0.995, verbose=0):
+    def __init__(self, monitor='sparse_categorical_accuracy', value=0.98, verbose=0):
         super(tf.keras.callbacks.Callback, self).__init__()
         self.monitor = monitor
         self.value = value
@@ -75,6 +75,44 @@ def projector_net():
 	])
 
 	return projector
+
+
+def retrain_contrastive(encoder_r, projector_z, train_ds,optimizer3):
+    @tf.function
+    def train_step(images, labels):
+        with tf.GradientTape() as tape:
+            r = encoder_r(images, training=True)
+            z = projector_z(r, training=True)
+            loss = losses.max_margin_contrastive_loss(z, labels)
+
+        gradients = tape.gradient(loss, 
+            encoder_r.trainable_variables + projector_z.trainable_variables)
+        optimizer3.apply_gradients(zip(gradients, 
+            encoder_r.trainable_variables + projector_z.trainable_variables))
+
+        return loss
+    
+    
+    EPOCHS =40
+    LOG_EVERY = 10
+    train_loss_results = []
+    encoder_r.trainable = True
+    projector_z.trainable = True
+    for epoch in range(EPOCHS):	
+        epoch_loss_avg = tf.keras.metrics.Mean()
+
+        for (images, labels) in train_ds:
+            loss = train_step(images, labels)
+            epoch_loss_avg.update_state(loss) 
+
+        train_loss_results.append(epoch_loss_avg.result())
+        if epoch_loss_avg.result() < 0.005:
+            print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
+            print("Encoder train exiting")
+            break
+        if epoch % LOG_EVERY == 0:
+            print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
+
 def train_gas_offline(X_train, y_train, X_test, y_test, verbose=True): 
     IMG_SHAPE = 128
     BS = 80
@@ -174,7 +212,10 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
     LOG_EVERY = 10
     BS = 80
     AUTO = tf.data.experimental.AUTOTUNE
-    CONFIDENCE_THRESHOLD = 0.85
+    NUM_TEST = len(X_test)
+    BS_ADAPT = 200
+    NUM_BATCH = NUM_TEST // BS_ADAPT
+    BATCH_SIZE_ADAPT = 20
     @tf.function
     def train_step(images, labels):
         with tf.GradientTape() as tape:
@@ -190,145 +231,80 @@ def train_gas_online(supervised_classifier, encoder_r, projector_z, optimizer2, 
         return loss
    
         
-     # Set samples for each class in train
+    # Set samples for each class in train
     sample_per_class = [[],[],[],[],[],[]]
     for i in range(len(y_train)):
         sample_per_class[y_train[i]].append(X_train[i])
-        
-    # Calculate score for each class in train
-    score_batch1 = supervised_classifier.predict(X_train)
-    score_max_1 = score_batch1.max(axis=1)
-    #scores_per_class = defaultdict(list)
-    scores_per_class = [0,0,0,0,0,0]
-    mean_score = [0,0,0,0,0,0]
-    for i in range(len(y_train)):
-        
-        scores_per_class[y_train[i]]+=score_max_1[i]
-    mean_score = [scores_per_class[key] / 98 for key in range(0,6)]
-    #mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
-    if verbose == True:
-        print("mean softmax score for training samples in each class: ",mean_score)
 
-    
-    
     results = []
-    results = []
-    max_scores = []
-    pseudo_label_accuracy = []
-    contrastive_loss = []
-    training_accuracy = []
-    retrains=[0]
-    label_accuracy = 0
     count = 0
     BATH_SIZE_ADAPT = 60
-    new_samples_dict = defaultdict(list)
     accumulate_count = [0,0,0,0,0,0]
-    #lowerbound = [0,0,0,0,0,0]
-    lowerbound = [mean_score[i] * CONFIDENCE_THRESHOLD for i in range(0,6)]
     
-    for i in range(0,len(X_test)):
+    for i in range(0,NUM_BATCH+1):
         
-        sample_score = supervised_classifier.predict(X_test[i].reshape(1,128))
-        label = sample_score.argmax() 
-        results.append(label)    
-        max_score = sample_score.max()
-        max_scores.append(max_score)
-        if max_score < mean_score[label]  and  max_score > lowerbound[label]:
-            # add to new training sample
-            if accumulate_count[label] >= len(sample_per_class[label]):
-                accumulate_count[label] = 0
-            sample_per_class[label][accumulate_count[label]] = X_test[i]
-            accumulate_count[label] += 1
-            count+=1
-            if label == y_test[i]:
-                label_accuracy += 1
-            
-            
-        # if we accumulate enough samples
-        if count >= BATH_SIZE_ADAPT:
-            pseudo_label_accuracy.append(label_accuracy/60)
-            label_accuracy = 0
-            retrains.append(i)
-            if verbose == True:
-                print("New adaptation initiated at sample", i)
-                print_batch_size(sample_per_class)
-            # form target batch
-            X_target =[]
-            y_target = np.array([],dtype=int)
+        X_batch = X_test[i*BS_ADAPT:(i+1)*BS_ADAPT]
+        batch_proj = projector_z.predict(encoder_r.predict(X_batch))
+        sample_score = supervised_classifier.predict(X_batch)
+        labels = sample_score.argmax(axis=1) 
+        results = np.concatenate((results, labels))  
+    
+        
+        for j in range(0, len(X_batch)):
+            d = np.linalg.norm(batch_proj[j] - train_proj_by_class[labels[j]])
+            if d < avg_distance_train[labels[j]] + 0.7:
+                #X_target.append(X_batch[j])
+                #y_target.append(labels[j])
+                if accumulate_count[labels[j]] >= len(sample_per_class[labels[j]]):
+                    accumulate_count[labels[j]] = 0
+                sample_per_class[labels[j]][accumulate_count[labels[j]]] = X_batch[j]
+                accumulate_count[labels[j]] += 1
+                count+=1
 
+        if count >= BATCH_SIZE_ADAPT :
             for key in range(0,6):
                 #print(key)
                 X_target = X_target + sample_per_class[key]
-                y_target = np.concatenate((y_target,np.full(98, key,dtype=int)))        
-            
+                y_target = np.concatenate((y_target,np.full(len(sample_per_class[key]), key,dtype=int))) 
+            #print(Counter(y_target))
             X_target = np.array(X_target)
-            
-            #print(X_target.shape, y_target.shape)
+            X_target = np.asarray(X_target).astype('float32')
+            y_target = np.asarray(y_target).astype('int32')
             train_ds=tf.data.Dataset.from_tensor_slices((X_target,y_target))
             train_ds = (
                 train_ds
                 .shuffle(100)
-                .batch(BS)
+                .batch(BATCH_SIZE)
                 .prefetch(AUTO)
             )
-            
-            train_loss_results = []
-            encoder_r.trainable = True
-            projector_z.trainable = True
-            for epoch in range(EPOCH_FEATURE_ADAPT):	
-                epoch_loss_avg = tf.keras.metrics.Mean()
-
-                for (images, labels) in train_ds:
-                    loss = train_step(images, labels)
-                    epoch_loss_avg.update_state(loss) 
-
-                train_loss_results.append(epoch_loss_avg.result())
-                if epoch_loss_avg.result() < 0.004:
-                    if verbose == True:
-                        print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
-                        print("Encoder train exiting")
-                    break
-                if verbose == True and (epoch % LOG_EVERY) == 0:
-                    print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
+            retrain_contrastive(encoder_r, projector_z, train_ds)
             encoder_r.trainable = False
             projector_z.trainable = False
-            contrastive_loss.append(train_loss_results[-1])
-            hist=supervised_classifier.fit(train_ds,
-                epochs=EPOCH_CLASSIFIER_ADAPT, verbose=1 if verbose else 0,callbacks=[EarlyStoppingByAccuracy()])
-            training_accuracy.append(hist.history['loss'])
+            supervised_classifier.fit(train_ds,
+                epochs=60,callbacks=[EarlyStoppingByAccuracy()])
+            X_target = []
+            y_target = []
             count = 0
-            
-            
-            # Calculate score for each class in train
-            score_batch1 = supervised_classifier.predict(X_target)
-            score_max_1 = score_batch1.max(axis=1)
-            #scores_per_class = defaultdict(list)
-            
-            scores_per_class = [0,0,0,0,0,0]
-            for j in range(len(y_target)):
-                scores_per_class[y_target[j]]+=score_max_1[j]
-            mean_score = [scores_per_class[key] / 98 for key in range(0,6)]
-            #mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
-            if verbose == True:
-                print("mean softmax score for training samples in each class: ",mean_score)
-            
-            
-            
-            #optimizer3=tf.keras.optimizers.Adam(learning_rate=0.0003 )
-            #optimizer2=tf.keras.optimizers.Adam(learning_rate=1e-3 )
-
-            lowerbound = [mean_score[j] * CONFIDENCE_THRESHOLD for j in range(0,6)]
-    saved = {
-      'contrastive_loss':contrastive_loss,
-      'results':results,
-      'steps': retrains,
-      'scores':max_scores,
-      'pseudo_label_accuracy':pseudo_label_accuracy,
-      'y_test':y_test
-    }
-    pickle.dump(saved, open('saved2.p','wb'))
+    
     return results
+def get_threshold_gas(X_train_proj, y_train):
+    class_count_train = Counter(y_train)
 
+    def def_value_b():
+        return np.zeros(X_train_proj[0].shape)
+    train_proj_by_class = defaultdict(def_value_b)
+    for i in range(1, len(X_train_proj)):
+        train_proj_by_class[y_train[i]] += X_train_proj[i]
+    for i in range(0,6):
+        train_proj_by_class[i] = train_proj_by_class[i] / class_count_train[i]
+    distance_train = defaultdict(list)
+    avg_distance_train = {}
+    for i in range(len(X_train_proj)):
+        distance_train[y_train[i]].append(np.linalg.norm(X_train_proj[i] - train_proj_by_class[y_train[i]]))
+
+    for i in range(0,6):
+        avg_distance_train[i] = np.mean(distance_train[i])
+    return avg_distance_train, train_proj_by_class
 def train_gas_online_saved(X_train,y_train,X_test,y_test,verbose = True):
     optimizer3=tf.keras.optimizers.Adam(learning_rate=0.0003 )
     encoder_r = encoder_net()
@@ -347,7 +323,7 @@ def train_gas_online_saved(X_train,y_train,X_test,y_test,verbose = True):
         return supervised_model
     optimizer2 = tf.keras.optimizers.Adam(learning_rate=1e-3)
     supervised_classifier = supervised_model()
-
+    print("loading weights")
     supervised_classifier.compile(optimizer=optimizer2,
         loss=tf.keras.losses.SparseCategoricalCrossentropy(),
         metrics=[tf.keras.metrics.SparseCategoricalAccuracy()])
@@ -355,18 +331,23 @@ def train_gas_online_saved(X_train,y_train,X_test,y_test,verbose = True):
     projector_z.load_weights("./SCL_projector_Adam_10.20.h5")
     supervised_classifier.load_weights('./Best_projected_350_epochs_10.20.h5')
     
+    X_train_proj = projector_z.predict(encoder_r.predict(X_train))
+    avg_distance_train, train_proj_by_class = get_threshold_gas(X_train_proj, y_train)
+
     #test for initial feature accuracy
     batches = [1244, 1586,161,197,2300,3613,294,470,3600]
-    count = 0
-    for i in range(len(batches)):
-        supervised_classifier.evaluate(X_test[count:count+batches[i]], y_test[count:count+batches[i]])
-        count+=batches[i]
+
     EPOCH_FEATURE_ADAPT = 25
-    EPOCH_CLASSIFIER_ADAPT = 50
+    EPOCH_CLASSIFIER_ADAPT = 60
     LOG_EVERY = 10
     BS = 80
     AUTO = tf.data.experimental.AUTOTUNE
-    CONFIDENCE_THRESHOLD = 0.8
+    BATCH_SIZE = 80
+
+    NUM_TEST = len(X_test)
+    BS_ADAPT = 200
+    NUM_BATCH = NUM_TEST // BS_ADAPT
+    BATCH_SIZE_ADAPT = 20
     @tf.function
     def train_step(images, labels):
         with tf.GradientTape() as tape:
@@ -380,126 +361,66 @@ def train_gas_online_saved(X_train,y_train,X_test,y_test,verbose = True):
             encoder_r.trainable_variables + projector_z.trainable_variables))
 
         return loss
-    
+
+
     # Set samples for each class in train
     sample_per_class = [[],[],[],[],[],[]]
     for i in range(len(y_train)):
         sample_per_class[y_train[i]].append(X_train[i])
-        
-    # Calculate score for each class in train
-    score_batch1 = supervised_classifier.predict(X_train)
-    score_max_1 = score_batch1.max(axis=1)
-    #scores_per_class = defaultdict(list)
-    scores_per_class = [0,0,0,0,0,0]
-    mean_score = [0,0,0,0,0,0]
-    for i in range(len(y_train)):
-        
-        scores_per_class[y_train[i]]+=score_max_1[i]
-    mean_score = [scores_per_class[key] / 98 for key in range(0,6)]
-    #mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
-    if verbose == True:
-        print("mean softmax score for training samples in each class: ",mean_score)
 
-    
-    
     results = []
-    results = []
-    #max_scores = []
-
     count = 0
+    X_target = []
+    y_target = []
     BATH_SIZE_ADAPT = 60
-    new_samples_dict = defaultdict(list)
     accumulate_count = [0,0,0,0,0,0]
-    #lowerbound = [0,0,0,0,0,0]
-    lowerbound = [mean_score[i] * CONFIDENCE_THRESHOLD for i in range(0,6)]
     
-    for i in range(0,len(X_test)):
+    for i in range(0,NUM_BATCH+1):
         
-        sample_score = supervised_classifier.predict(X_test[i].reshape(1,128))
-        label = sample_score.argmax() 
-        results.append(label)    
-        max_score = sample_score.max()
-        #max_scores.append(max_score)
-        if max_score < mean_score[label]  and  max_score > lowerbound[label]:
-            # add to new training sample
-            if accumulate_count[label] >= len(sample_per_class[label]):
-                accumulate_count[label] = 0
-            sample_per_class[label][accumulate_count[label]] = X_test[i]
-            accumulate_count[label] += 1
-            count+=1
-            
-            
-        # if we accumulate enough samples
-        if count >= BATH_SIZE_ADAPT:
-            if verbose == True:
-                print("New adaptation initiated at sample", i)
-                print_batch_size(sample_per_class)
-            # form target batch
-            X_target =[]
-            y_target = np.array([],dtype=int)
+        X_batch = X_test[i*BS_ADAPT:(i+1)*BS_ADAPT]
+        batch_proj = projector_z.predict(encoder_r.predict(X_batch))
+        sample_score = supervised_classifier.predict(X_batch)
+        labels = sample_score.argmax(axis=1) 
+        results = np.concatenate((results, labels))  
+    
+        
+        for j in range(0, len(X_batch)):
+            d = np.linalg.norm(batch_proj[j] - train_proj_by_class[labels[j]])
+            if d < avg_distance_train[labels[j]] + 0.7:
+                #X_target.append(X_batch[j])
+                #y_target.append(labels[j])
+                if accumulate_count[labels[j]] >= len(sample_per_class[labels[j]]):
+                    accumulate_count[labels[j]] = 0
+                sample_per_class[labels[j]][accumulate_count[labels[j]]] = X_batch[j]
+                accumulate_count[labels[j]] += 1
+                count+=1
 
+        if count >= BATCH_SIZE_ADAPT :
             for key in range(0,6):
                 #print(key)
                 X_target = X_target + sample_per_class[key]
-                y_target = np.concatenate((y_target,np.full(98, key,dtype=int)))        
-            
+                y_target = np.concatenate((y_target,np.full(len(sample_per_class[key]), key,dtype=int))) 
+            #print(Counter(y_target))
             X_target = np.array(X_target)
-            
-            #print(X_target.shape, y_target.shape)
+            X_target = np.asarray(X_target).astype('float32')
+            y_target = np.asarray(y_target).astype('int32')
             train_ds=tf.data.Dataset.from_tensor_slices((X_target,y_target))
             train_ds = (
                 train_ds
                 .shuffle(100)
-                .batch(BS)
+                .batch(BATCH_SIZE)
                 .prefetch(AUTO)
             )
-            
-            train_loss_results = []
-            encoder_r.trainable = True
-            projector_z.trainable = True
-            for epoch in range(EPOCH_FEATURE_ADAPT):	
-                epoch_loss_avg = tf.keras.metrics.Mean()
-
-                for (images, labels) in train_ds:
-                    loss = train_step(images, labels)
-                    epoch_loss_avg.update_state(loss) 
-
-                train_loss_results.append(epoch_loss_avg.result())
-                if epoch_loss_avg.result() < 0.004:
-                    if verbose == True:
-                        print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
-                        print("Encoder train exiting")
-                    break
-                if verbose == True and (epoch % LOG_EVERY) == 0:
-                    print("Epoch: {} Loss: {:.3f}".format(epoch, epoch_loss_avg.result()))
+            retrain_contrastive(encoder_r, projector_z, train_ds,optimizer3)
             encoder_r.trainable = False
             projector_z.trainable = False
-            
             supervised_classifier.fit(train_ds,
-                epochs=EPOCH_CLASSIFIER_ADAPT, verbose=1 if verbose else 0,callbacks=[EarlyStoppingByAccuracy()])
-            
+                epochs=60,callbacks=[EarlyStoppingByAccuracy()])
+            X_target = []
+            y_target = []
             count = 0
             
-            
-            # Calculate score for each class in train
-            score_batch1 = supervised_classifier.predict(X_target)
-            score_max_1 = score_batch1.max(axis=1)
-            #scores_per_class = defaultdict(list)
-            
-            scores_per_class = [0,0,0,0,0,0]
-            for j in range(len(y_target)):
-                scores_per_class[y_target[j]]+=score_max_1[j]
-            mean_score = [scores_per_class[key] / 98 for key in range(0,6)]
-            #mean_score = {key:np.mean(scores_per_class[key]) for key in scores_per_class}
-            if verbose == True:
-                print("mean softmax score for training samples in each class: ",mean_score)
-            
-            
-            
-            #optimizer3=tf.keras.optimizers.Adam(learning_rate=0.0003 )
-            #optimizer2=tf.keras.optimizers.Adam(learning_rate=1e-3 )
 
-            lowerbound = [mean_score[j] * CONFIDENCE_THRESHOLD for j in range(0,6)]
     return results
 def evaluate(y_true, y_pred):
     batch_length = [445, 1244, 1586,161,197,2300,3613,294,470,3600]

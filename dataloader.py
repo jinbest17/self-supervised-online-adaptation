@@ -1,11 +1,12 @@
 #from sklearn.utils import shuffle
 from sklearn.datasets import load_svmlight_file
-#from imblearn.over_sampling import SMOTE
+from imblearn.over_sampling import SMOTE
 import pickle
 import numpy as np
 from sklearn import preprocessing
 from sklearn.utils import shuffle
 import tensorflow as tf
+
 
 def normalize(Xmin, Xmax, X):
     for i in range(0, len(X)):
@@ -40,7 +41,7 @@ def load_data(dataset_name, use_imb=True):
         data= []
         X_all = []
         y_all = []
-        
+        sm = SMOTE()
         #oversample = SMOTE()
         data_path = '../Dataset'
         X_y_train = load_svmlight_file(data_path + "/batch" +str(1)+".dat")
@@ -59,10 +60,12 @@ def load_data(dataset_name, use_imb=True):
             y_test = np.concatenate((y_test, data[i-3][1]))
         X_test = normalize(Xmin,Xmax,X_test)
         X_train = normalize(Xmin,Xmax,X_train)
-        X_train = np.asarray(X_train).astype(np.float32)
         print(type(X_train))
         print(type(X_test))
         le = preprocessing.LabelEncoder()
+        X_train, y_train = sm.fit_resample(X_train, y_train)
+        X_train = np.asarray(X_train).astype(np.float32)
+
         y_train = np.asarray(le.fit_transform(y_train)).astype(np.int32)
         y_test = np.asarray(le.transform(y_test)).astype(np.int32)
         

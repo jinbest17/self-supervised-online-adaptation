@@ -36,9 +36,14 @@ def run_gas():
 
 def run_gas_from_saved():
     X_train, y_train, X_test, y_test = dataloader.load_data('gas')
-
+    sock.sendto(b's,gas_SOA', (UDP_IP, UDP_PORT))
     st = time.time()
     results = train.train_gas_online_saved(X_train, y_train,X_test,y_test)
+    ed = time.time()
+    sock.sendto(b't,', (UDP_IP, UDP_PORT))
+    with open('time_log.txt', 'a+') as f:
+        f.write('gas SOA online exec time: {} secs\n'.format(ed - st))
+
     print('online exec time: {} secs'.format(time.time() - st))
 
     train.evaluate(y_test, results)
@@ -71,7 +76,7 @@ def run_mnist_noise():
     #print(X_test_noise.shape)
     supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3,X_train_small, y_train_small = train_MNIST.train_mnist_offline(X_train, y_train)
     X_train_proj = projector_z.predict(encoder_r.predict(X_train))
-    avg_disatnce_train, train_proj_by_class = get_threshold_mnist(X_train_proj, y_train)
+    avg_distance_train, train_proj_by_class = get_threshold_mnist(X_train_proj, y_train)
     sock.sendto(b's,mnist_SOA_noise', (UDP_IP, UDP_PORT))
     st = time.time()
     result_noise = train_MNIST.train_mnist_online(supervised_classifier, encoder_r, projector_z, optimizer2, optimizer3, X_train_small, y_train_small, X_test_noise,train_proj_by_class,avg_distance_train)
